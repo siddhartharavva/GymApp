@@ -23,8 +23,20 @@ class WorkoutViewModel : ViewModel() {
                     workoutId = 1,
                     name = "Bench Press",
                     sets = listOf(
-                        WorkoutSet(id = 1, reps = 10, weight = 60f),
-                        WorkoutSet(id = 2, reps = 8, weight = 70f)
+                        WorkoutSet(
+                            id = 1,
+                            minReps = 8,
+                            maxReps = 12,
+                            weight = 60f,
+                            restSeconds = 90
+                        ),
+                        WorkoutSet(
+                            id = 2,
+                            minReps = 8,
+                            maxReps = 12,
+                            weight = 60f,
+                            restSeconds = 90
+                        )
                     )
                 )
             )
@@ -77,7 +89,13 @@ class WorkoutViewModel : ViewModel() {
             workoutId = workoutId,
             name = name,
             sets = listOf(
-                WorkoutSet(id = 1, reps = 8, weight = 20f)
+                WorkoutSet(
+                    id = 1,
+                    minReps = 8,
+                    maxReps = 12,
+                    weight = 60f,
+                    restSeconds = 90
+                )
             )
         )
 
@@ -97,12 +115,10 @@ class WorkoutViewModel : ViewModel() {
         )
     }
 
-    // ---- SET EDITING ----
     fun updateSet(
         workoutId: Int,
         exerciseId: Int,
         setIndex: Int,
-        newReps: Int,
         newWeight: Float
     ) {
         val wIndex = _workouts.indexOfFirst { it.id == workoutId }
@@ -113,17 +129,40 @@ class WorkoutViewModel : ViewModel() {
 
         val updatedSets = exercise.sets.mapIndexed { index, set ->
             if (index == setIndex) {
+                set.copy(weight = newWeight.coerceAtLeast(0f))
+            } else set
+        }
+
+        val updatedExercises = workout.exercises.map {
+            if (it.id == exerciseId) it.copy(sets = updatedSets) else it
+        }
+
+        _workouts[wIndex] = workout.copy(exercises = updatedExercises)
+    }
+    fun updateRepRange(
+        workoutId: Int,
+        exerciseId: Int,
+        setIndex: Int,
+        minReps: Int,
+        maxReps: Int
+    ) {
+        val wIndex = _workouts.indexOfFirst { it.id == workoutId }
+        if (wIndex == -1) return
+
+        val workout = _workouts[wIndex]
+        val exercise = workout.exercises.find { it.id == exerciseId } ?: return
+
+        val updatedSets = exercise.sets.mapIndexed { index, set ->
+            if (index == setIndex) {
                 set.copy(
-                    reps = newReps.coerceAtLeast(0),
-                    weight = newWeight.coerceAtLeast(0f)
+                    minReps = minReps.coerceAtLeast(0),
+                    maxReps = maxReps.coerceAtLeast(minReps)
                 )
             } else set
         }
 
         val updatedExercises = workout.exercises.map {
-            if (it.id == exerciseId)
-                it.copy(sets = updatedSets)
-            else it
+            if (it.id == exerciseId) it.copy(sets = updatedSets) else it
         }
 
         _workouts[wIndex] = workout.copy(exercises = updatedExercises)
@@ -140,9 +179,13 @@ class WorkoutViewModel : ViewModel() {
 
         val newSet = WorkoutSet(
             id = exercise.sets.size + 1,
-            reps = 8,
-            weight = 20f
+            minReps = 8,
+            maxReps = 12,
+            weight = 20f,
+            restSeconds = 90
         )
+
+
 
         val updatedExercises = workout.exercises.map {
             if (it.id == exerciseId)
@@ -166,6 +209,32 @@ class WorkoutViewModel : ViewModel() {
 
         val updatedSets = exercise.sets.filterIndexed { index, _ ->
             index != setIndex
+        }
+
+        val updatedExercises = workout.exercises.map {
+            if (it.id == exerciseId)
+                it.copy(sets = updatedSets)
+            else it
+        }
+
+        _workouts[wIndex] = workout.copy(exercises = updatedExercises)
+    }
+    fun updateRest(
+        workoutId: Int,
+        exerciseId: Int,
+        setIndex: Int,
+        newRestSeconds: Int
+    ) {
+        val wIndex = _workouts.indexOfFirst { it.id == workoutId }
+        if (wIndex == -1) return
+
+        val workout = _workouts[wIndex]
+        val exercise = workout.exercises.find { it.id == exerciseId } ?: return
+
+        val updatedSets = exercise.sets.mapIndexed { index, set ->
+            if (index == setIndex) {
+                set.copy(restSeconds = newRestSeconds.coerceAtLeast(0))
+            } else set
         }
 
         val updatedExercises = workout.exercises.map {

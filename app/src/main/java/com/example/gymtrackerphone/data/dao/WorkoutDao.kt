@@ -1,0 +1,46 @@
+package com.example.gymtrackerphone.data.dao
+
+import androidx.room.*
+import com.example.gymtrackerphone.data.entity.*
+import com.example.gymtrackerphone.data.relation.WorkoutWithExercises
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface WorkoutDao {
+
+    // ---------- WORKOUTS ----------
+    @Query("SELECT * FROM workouts")
+    fun getWorkouts(): Flow<List<WorkoutEntity>>
+
+    @Insert
+    suspend fun insertWorkout(workout: WorkoutEntity)
+
+    @Query("UPDATE workouts SET name = :name WHERE id = :workoutId")
+    suspend fun updateWorkout(workoutId: Int, name: String)
+
+    @Query("DELETE FROM workouts WHERE id = :workoutId")
+    suspend fun deleteWorkoutById(workoutId: Int)
+
+    // ---------- EXERCISES ----------
+    @Insert
+    suspend fun insertExercise(exercise: ExerciseEntity)
+
+    @Query("DELETE FROM exercises WHERE id = :exerciseId")
+    suspend fun deleteExerciseById(exerciseId: Int)
+
+    // ---------- SETS ----------
+    @Insert
+    suspend fun insertSet(set: WorkoutSetEntity)
+
+    @Query("DELETE FROM sets WHERE id = :setId")
+    suspend fun deleteSetById(setId: Int)
+
+    @Query("UPDATE sets SET minReps = :min, maxReps = :max WHERE id = :setId")
+    suspend fun updateRepRange(setId: Int, min: Int, max: Int)
+
+    @Query("UPDATE sets SET weight = :weight WHERE id = :setId")
+    suspend fun updateWeight(setId: Int, weight: Float)
+
+    @Query("UPDATE sets SET restSeconds = :rest WHERE id = :setId")
+    suspend fun updateRest(setId: Int, rest: Int)
+}

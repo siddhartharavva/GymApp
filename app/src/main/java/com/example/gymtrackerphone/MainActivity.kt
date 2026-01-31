@@ -18,9 +18,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
+import com.example.gymtrackerphone.data.model.WorkoutUi
+import com.example.gymtrackerphone.data.repository.WorkoutRepository
 import com.example.gymtrackerphone.ui.HomeScreen
 import com.example.gymtrackerphone.ui.theme.GymTrackerPhoneTheme
 import com.example.gymtrackerphone.ui.WorkoutDetailsScreen
+import com.example.gymtrackerphone.viewmodel.WorkoutViewModelFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +33,14 @@ class MainActivity : ComponentActivity() {
             GymTrackerPhoneTheme {
 
                 val navController = rememberNavController()
-                val workoutViewModel: WorkoutViewModel = viewModel()
+
+                val app = application as GymTrackerApp
+                val repository = WorkoutRepository(app.database.workoutDao())
+
+                val workoutViewModel: WorkoutViewModel = viewModel(
+                    factory = WorkoutViewModelFactory(repository)
+                )
+
                 NavHost(
                     navController = navController,
                     startDestination = "home"
@@ -45,18 +55,15 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    composable(
-                        route = "details/{workoutId}"
-                    ) { backStackEntry ->
+                    composable("details/{workoutId}") { backStackEntry ->
                         val workoutId =
-                            backStackEntry.arguments?.getString("workoutId")?.toInt()
-
-                        val workoutViewModel: WorkoutViewModel = viewModel()
+                            backStackEntry.arguments?.getString("workoutId")!!.toInt()
 
                         WorkoutDetailsScreen(
-                            workoutId = workoutId!!,
+                            workoutId = workoutId,
                             viewModel = workoutViewModel
-                        )                    }
+                        )
+                    }
                 }
             }
         }

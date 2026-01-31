@@ -1,141 +1,62 @@
 package com.example.gymtrackerphone.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.Alignment
+import com.example.gymtrackerphone.ui.navigation.HomeTab
+import com.example.gymtrackerphone.data.model.WorkoutUi
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModel
-import com.example.gymtrackerphone.data.Workout
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: WorkoutViewModel,
-    onWorkoutClick: (Workout) -> Unit
-){
+    onWorkoutClick: (WorkoutUi) -> Unit
+) {
+    var selectedTab by remember { mutableStateOf<HomeTab>(HomeTab.MyWorkouts) }
 
-    var textInput by remember { mutableStateOf("") }
-    var editingWorkoutId by remember { mutableStateOf<Int?>(null) }
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Box {
 
-    Scaffold(
-        modifier = Modifier.imePadding(),
-
-        topBar = {
-            TopAppBar(
-                title = { Text("My Workouts") }
-            )
-        },
-        bottomBar = {
+            // ---- MAIN CONTENT (ABOVE NAVBAR) ----
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+                    .fillMaxSize()
+                    .padding(top = 56.dp)   // AppBar height
+                    .padding(bottom = 80.dp) // Navbar height
             ) {
+                TopAppBar(title = { Text("Gym Tracker") })
 
-                OutlinedTextField(
-                    value = textInput,
-                    onValueChange = { textInput = it },
-                    label = { Text("Workout name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        if (textInput.isBlank()) return@Button
-
-                        if (editingWorkoutId == null) {
-                            viewModel.addWorkout(textInput)
-                        } else {
-                            viewModel.updateWorkout(editingWorkoutId!!, textInput)
-                            editingWorkoutId = null
-                        }
-
-                        textInput = ""
-                    }
-                ) {
-                    Text(
-                        if (editingWorkoutId == null)
-                            "Add Workout"
-                        else
-                            "Update Workout"
-                    )
-                }
-            }
-        }
-    ) { paddingValues ->
-
-        LazyColumn(
-            modifier = Modifier
-                .padding(paddingValues)
-                .padding(16.dp)
-        ) {
-            items(viewModel.workouts) { workout ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                        .clickable {
-                            onWorkoutClick(workout)
-                        }
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-
-                        // Workout name (NOT clickable anymore)
-                        Text(
-                            text = workout.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
+                when (selectedTab) {
+                    HomeTab.MyWorkouts ->
+                        MyWorkoutsScreen(
+                            viewModel = viewModel,
+                            onWorkoutClick = onWorkoutClick
                         )
 
+                    HomeTab.PastWorkouts ->
+                        PastWorkoutsScreen(viewModel)
+                }
+            }
 
-
-
-                        Row {
-                            IconButton(
-                                onClick = {
-                                    textInput = workout.name
-                                    editingWorkoutId = workout.id
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Edit,
-                                    contentDescription = "Edit workout",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-
-                            IconButton(
-                                onClick = {
-                                    viewModel.deleteWorkout(workout.id)
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Delete,
-                                    contentDescription = "Delete workout",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
+            // ---- FIXED NAVBAR ----
+            NavigationBar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .height(80.dp)
+            ) {
+                listOf(HomeTab.MyWorkouts, HomeTab.PastWorkouts).forEach { tab ->
+                    NavigationBarItem(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        icon = { Icon(tab.icon, contentDescription = tab.label) },
+                        label = { Text(tab.label) }
+                    )
                 }
             }
         }

@@ -1,8 +1,0 @@
-package com.example.gymtrackerphone.data
-
-data class Workout(
-    val id: Int,
-    val name: String,
-    val exercises: List<Exercise>
-)
-

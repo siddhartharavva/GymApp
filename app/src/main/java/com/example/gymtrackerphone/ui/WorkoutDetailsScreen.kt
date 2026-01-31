@@ -92,61 +92,20 @@ fun WheelPicker(
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutDetailsScreen(
     workoutId: Int,
     viewModel: WorkoutViewModel
 ) {
-    val workout = viewModel.getWorkoutById(workoutId)
+    val workouts by viewModel.workouts.collectAsState()
+    val workout = workouts.firstOrNull { it.id == workoutId }
 
     Scaffold(
-        modifier = Modifier.imePadding(),
-
         topBar = {
             TopAppBar(
                 title = { Text(workout?.name ?: "Workout") }
             )
-        },
-        bottomBar = {
-            var newExerciseName by remember { mutableStateOf("") }
-
-            Card(
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .navigationBarsPadding()
-                ) {
-                    OutlinedTextField(
-                        value = newExerciseName,
-                        onValueChange = { newExerciseName = it },
-                        label = { Text("New Exercise") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            if (newExerciseName.isNotBlank() && workout != null) {
-                                viewModel.addExercise(workout.id, newExerciseName)
-                                newExerciseName = ""
-                            }
-                        }
-                    ) {
-                        Text("Add Exercise")
-                    }
-                }
-            }
         }
     ) { paddingValues ->
 
@@ -165,19 +124,13 @@ fun WorkoutDetailsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
-                    bottom = paddingValues.calculateBottomPadding() + 24.dp,
-                    top = paddingValues.calculateTopPadding(),
-                    start = 16.dp,
-                    end = 16.dp
-                )
+                .padding(paddingValues)
+                .padding(16.dp)
         ) {
             items(workout.exercises) { exercise ->
 
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
@@ -185,178 +138,111 @@ fun WorkoutDetailsScreen(
                         // ---- EXERCISE HEADER ----
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = exercise.name,
+                                exercise.name,
                                 style = MaterialTheme.typography.titleLarge
                             )
 
                             IconButton(
                                 onClick = {
-                                    viewModel.deleteExercise(workout.id, exercise.id)
+                                    viewModel.deleteExercise(exercise.id)
                                 }
                             ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Delete,
-                                    contentDescription = "Delete exercise"
-                                )
+                                Icon(Icons.Outlined.Delete, null)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(Modifier.height(8.dp))
 
                         // ---- SETS ----
-                        exercise.sets.forEachIndexed { index, set ->
+                        exercise.sets.forEach { set ->
 
                             Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 2.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
                             ) {
-                                Column(modifier = Modifier.padding(6.dp)) {
+                                Column(modifier = Modifier.padding(8.dp)) {
 
-                                    // ---- SET HEADER ----
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(
-                                            text = "Set ${index + 1}",
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
+                                        Text("Set")
 
                                         IconButton(
-                                            modifier = Modifier.size(48.dp),
                                             onClick = {
-                                                viewModel.deleteSet(
-                                                    workout.id,
-                                                    exercise.id,
-                                                    index
-                                                )
+                                                viewModel.deleteSet(set.id)
                                             }
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Outlined.Delete,
-                                                contentDescription = "Delete set",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                            Icon(Icons.Outlined.Delete, null)
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(2.dp))
-
-                                    Text(
-                                        "Reps Range",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    Text("Reps Range")
 
                                     RangeSlider(
                                         value = set.minReps.toFloat()..set.maxReps.toFloat(),
-                                        onValueChange = { range ->
+                                        onValueChange = {
                                             viewModel.updateRepRange(
-                                                workout.id,
-                                                exercise.id,
-                                                index,
-                                                range.start.toInt(),
-                                                range.endInclusive.toInt()
+                                                set.id,
+                                                it.start.toInt(),
+                                                it.endInclusive.toInt()
                                             )
                                         },
-                                        valueRange = 0f..35f,
-                                        steps = 24,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = SliderDefaults.colors(
-                                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                                            inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant,
-                                            thumbColor = MaterialTheme.colorScheme.primary
-                                        )
+                                        valueRange = 0f..35f
                                     )
 
-                                    Text(
-                                        text = "${set.minReps} – ${set.maxReps} reps",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                                    )
+                                    Text("${set.minReps} – ${set.maxReps}")
 
-                                    Spacer(modifier = Modifier.height(2.dp))
-
-                                    // ---- WEIGHT ----
-                                    Text(
-                                        "Weight",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-
-                                    val weightValues = remember {
-                                        (0..200).map { (it * 2.5f).toString() }
-                                    }
+                                    Text("Weight")
 
                                     WheelPicker(
-                                        values = weightValues,
+                                        values = (0..200).map { (it * 2.5f).toString() },
                                         selectedIndex = (set.weight / 2.5f).toInt(),
-                                        onValueChange = { pickerIndex ->
-                                            viewModel.updateSet(
-                                                workout.id,
-                                                exercise.id,
-                                                index,
-                                                pickerIndex * 2.5f
+                                        onValueChange = {
+                                            viewModel.updateWeight(
+                                                set.id,
+                                                it * 2.5f
                                             )
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
+                                        }
                                     )
 
-                                    Spacer(modifier = Modifier.height(2.dp))
-
-                                    // ---- REST ----
-                                    Text(
-                                        "Rest",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-
-                                    val restValues = remember {
-                                        (0..30).map { "${it * 10}s" }
-                                    }
+                                    Text("Rest")
 
                                     WheelPicker(
-                                        values = restValues,
+                                        values = (0..30).map { "${it * 10}s" },
                                         selectedIndex = set.restSeconds / 10,
-                                        onValueChange = { pickerIndex ->
+                                        onValueChange = {
                                             viewModel.updateRest(
-                                                workout.id,
-                                                exercise.id,
-                                                index,
-                                                pickerIndex * 10
+                                                set.id,
+                                                it * 10
                                             )
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
+                                        }
                                     )
                                 }
                             }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
 
-                        // ---- ADD SET ----
+                            Spacer(Modifier.height(8.dp))
+                        }
+
                         Button(
+                            modifier = Modifier.fillMaxWidth(),
                             onClick = {
-                                viewModel.addSet(workout.id, exercise.id)
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                                viewModel.addSet(exercise.id)
+                            }
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Add,
-                                contentDescription = "Add set"
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(Icons.Outlined.Add, null)
+                            Spacer(Modifier.width(8.dp))
                             Text("Add Set")
                         }
                     }
                 }
+
+                Spacer(Modifier.height(12.dp))
             }
         }
     }

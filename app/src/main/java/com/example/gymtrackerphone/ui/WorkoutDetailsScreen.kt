@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -16,13 +17,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlin.math.abs
-
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -31,66 +34,102 @@ fun WheelPicker(
     selectedIndex: Int,
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    itemHeight: Dp = 48.dp // Increased height for better touch targets
+    itemHeight: Dp = 28.dp
 ) {
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = (selectedIndex).coerceAtLeast(0)
-    )
-    val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
+    val listState = rememberLazyListState()
+    val flingBehavior = rememberSnapFlingBehavior(listState)
 
-    // Track the internal center to update UI color immediately
-    var centeredIndex by remember { mutableStateOf(selectedIndex) }
+    var currentIndex by remember { mutableStateOf(selectedIndex) }
+    var committedIndex by remember { mutableStateOf(selectedIndex) }
 
-    // OPTIMIZATION: Use snapshotFlow to observe scroll changes efficiently
+    // 🔒 Hard lock until user scrolls
+    var allowLayoutUpdates by remember { mutableStateOf(false) }
+    var userScrolled by remember { mutableStateOf(false) }
+
+    // 🔒 DB → UI sync (ABSOLUTE SOURCE OF TRUTH)
+    LaunchedEffect(selectedIndex) {
+        allowLayoutUpdates = false
+        userScrolled = false
+
+        currentIndex = selectedIndex
+        committedIndex = selectedIndex
+
+        listState.scrollToItem(selectedIndex)
+    }
+
+    // 🔵 Track center item (UI ONLY, gated)
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo }
-            .collect { layoutInfo ->
-                val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-                val centerItem = layoutInfo.visibleItemsInfo
-                    .minByOrNull { abs((it.offset + it.size / 2) - viewportCenter) }
+            .collect { layout ->
+                if (!allowLayoutUpdates) return@collect
 
-                centerItem?.let {
-                    val adjustedIndex = it.index.coerceIn(0, values.lastIndex)
-                    if (centeredIndex != adjustedIndex) {
-                        centeredIndex = adjustedIndex
-                        onValueChange(adjustedIndex)
-                    }
+                val center =
+                    (layout.viewportStartOffset + layout.viewportEndOffset) / 2
+
+                val centeredItem = layout.visibleItemsInfo.minByOrNull { item ->
+                    kotlin.math.abs((item.offset + item.size / 2) - center)
+                }
+
+                centeredItem?.let {
+                    currentIndex = it.index
                 }
             }
     }
 
+    // 🟢 Commit ONLY after genuine user scroll
+    LaunchedEffect(listState.isScrollInProgress) {
+
+        if (listState.isScrollInProgress) {
+            userScrolled = true
+            allowLayoutUpdates = true
+        }
+
+        if (!listState.isScrollInProgress) {
+            if (userScrolled && currentIndex != committedIndex) {
+                committedIndex = currentIndex
+                onValueChange(currentIndex)
+            }
+            userScrolled = false
+        }
+    }
+
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val itemWidth = 44.dp
+
     LazyRow(
         state = listState,
-        flingBehavior = snapFlingBehavior,
+        flingBehavior = flingBehavior,
         modifier = modifier
             .fillMaxWidth()
             .height(itemHeight),
         verticalAlignment = Alignment.CenterVertically,
-        contentPadding = PaddingValues(horizontal = (LocalConfiguration.current.screenWidthDp.dp / 2) - 32.dp)
+        contentPadding = PaddingValues(
+            horizontal = screenWidth / 2 - itemWidth / 2
+        )
     ) {
-        // Removed manual Spacers and replaced with contentPadding for cleaner code
         itemsIndexed(values) { index, value ->
             Box(
-                modifier = Modifier
-                    .width(64.dp)
-                    .fillMaxHeight(),
+                modifier = Modifier.width(itemWidth),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = value,
-                    style = if (index == centeredIndex)
-                        MaterialTheme.typography.titleLarge
+                    style =
+                    if (index == currentIndex)
+                        MaterialTheme.typography.titleMedium
                     else
-                        MaterialTheme.typography.bodyMedium,
-                    color = if (index == centeredIndex)
-                        MaterialTheme.colorScheme.primary // The light blue in your photo
+                        MaterialTheme.typography.bodySmall,
+                    color =
+                    if (index == currentIndex)
+                        MaterialTheme.colorScheme.primary
                     else
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                 )
             }
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,13 +137,19 @@ fun WorkoutDetailsScreen(
     workoutId: Int,
     viewModel: WorkoutViewModel
 ) {
+
+    var bottomBarHeight by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
+
     val workouts by viewModel.workouts.collectAsState()
     val workout = workouts.firstOrNull { it.id == workoutId }
+
+    var exerciseName by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(workout?.name ?: "Workout") }
+                title = { Text(workout?.name ?: "Workout")}
             )
         }
     ) { paddingValues ->
@@ -114,6 +159,7 @@ fun WorkoutDetailsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
+
                 contentAlignment = Alignment.Center
             ) {
                 Text("Workout not found")
@@ -121,128 +167,210 @@ fun WorkoutDetailsScreen(
             return@Scaffold
         }
 
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
         ) {
-            items(workout.exercises) { exercise ->
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+            // -------- MAIN CONTENT --------
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 16.dp,
+                    bottom = bottomBarHeight + 16.dp
+                )
 
-                        // ---- EXERCISE HEADER ----
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                exercise.name,
-                                style = MaterialTheme.typography.titleLarge
-                            )
+            ) {
+                items(workout.exercises) { exercise ->
 
-                            IconButton(
-                                onClick = {
-                                    viewModel.deleteExercise(exercise.id)
-                                }
-                            ) {
-                                Icon(Icons.Outlined.Delete, null)
-                            }
-                        }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
 
-                        Spacer(Modifier.height(8.dp))
-
-                        // ---- SETS ----
-                        exercise.sets.forEach { set ->
-
-                            Card(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                )
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    exercise.name,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontSize = MaterialTheme.typography.titleLarge.fontSize * 1.1f
+                                    ),
+                                    modifier = Modifier.padding(top=4.dp,start = 4.dp)
+                                )
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Set")
+                                IconButton(
+                                    onClick = { viewModel.deleteExercise(exercise.id) }
+                                ) {
+                                    Icon(Icons.Outlined.Delete, null)
+                                }
+                            }
 
-                                        IconButton(
-                                            onClick = {
-                                                viewModel.deleteSet(set.id)
-                                            }
+
+                            exercise.sets.forEachIndexed {index, set ->
+
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth().
+                                        padding(vertical = 2.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Icon(Icons.Outlined.Delete, null)
+                                            Text("Set ${index + 1}")
+
+                                            IconButton(
+                                                onClick = { viewModel.deleteSet(set.id) },
+                                                modifier = Modifier
+                                                    .size(36.dp) // ⬅️ smaller tap area
+                                                    .offset(y = (-2).dp) // ⬅️ nudges it up
+                                            ) {
+                                                Icon(
+                                                    Icons.Outlined.Delete,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                           /* IconButton(
+                                                onClick = { viewModel.deleteSet(set.id) }
+                                            ) {
+                                                Icon(Icons.Outlined.Delete, null)
+                                            }*/
                                         }
+
+                                        Text("Reps Range",style = MaterialTheme.typography.labelMedium)
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(28.dp), // ⬅️ key line
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                        RangeSlider(
+                                            value = set.minReps.toFloat()..set.maxReps.toFloat(),
+                                            onValueChange = {
+                                                viewModel.updateRepRange(
+                                                    set.id,
+                                                    it.start.toInt(),
+                                                    it.endInclusive.toInt()
+                                                )
+                                            },
+                                            valueRange = 1f..35f,
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = MaterialTheme.colorScheme.primary,
+                                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                                inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        )
                                     }
 
-                                    Text("Reps Range")
-
-                                    RangeSlider(
-                                        value = set.minReps.toFloat()..set.maxReps.toFloat(),
-                                        onValueChange = {
-                                            viewModel.updateRepRange(
-                                                set.id,
-                                                it.start.toInt(),
-                                                it.endInclusive.toInt()
-                                            )
-                                        },
-                                        valueRange = 0f..35f
-                                    )
-
-                                    Text("${set.minReps} – ${set.maxReps}")
-
-                                    Text("Weight")
-
-                                    WheelPicker(
-                                        values = (0..200).map { (it * 2.5f).toString() },
-                                        selectedIndex = (set.weight / 2.5f).toInt(),
-                                        onValueChange = {
-                                            viewModel.updateWeight(
-                                                set.id,
-                                                it * 2.5f
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "${set.minReps} – ${set.maxReps} Reps",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.primary
                                             )
                                         }
-                                    )
 
-                                    Text("Rest")
+                                        Text("Weight",    style = MaterialTheme.typography.labelMedium)
+                                        WheelPicker(
+                                            values = (0..200).map { "${it * 2.5f}" },
+                                            selectedIndex = (set.weight / 2.5f).roundToInt(),
+                                            onValueChange = { index ->
+                                                val newWeight = index * 2.5f
+                                                if (newWeight != set.weight) {
+                                                    viewModel.updateWeight(set.id, newWeight)
+                                                }
+                                            }
+                                        )
 
-                                    WheelPicker(
-                                        values = (0..30).map { "${it * 10}s" },
-                                        selectedIndex = set.restSeconds / 10,
-                                        onValueChange = {
-                                            viewModel.updateRest(
-                                                set.id,
-                                                it * 10
-                                            )
-                                        }
-                                    )
+
+                                        Text("Rest",style = MaterialTheme.typography.labelMedium)
+                                        WheelPicker(
+                                            values = (0..30).map { "${it * 10}s" },
+                                            selectedIndex = (set.restSeconds / 10),
+                                            onValueChange = { index ->
+                                                val newRest = index * 10
+                                                if (newRest != set.restSeconds) {
+                                                    viewModel.updateRest(set.id, newRest)
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             }
 
-                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { viewModel.addSet(exercise.id) }
+                            ) {
+                                Icon(Icons.Outlined.Add, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Add Set")
+                            }
                         }
 
-                        Button(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                viewModel.addSet(exercise.id)
-                            }
-                        ) {
-                            Icon(Icons.Outlined.Add, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Add Set")
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+
+                }
+            }
+
+
+            // -------- INPUT BAR --------
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .onSizeChanged {
+                        with(density) {
+                            bottomBarHeight = it.height.toDp()
                         }
                     }
-                }
+                    .imePadding(),
 
-                Spacer(Modifier.height(12.dp))
+                tonalElevation = 3.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    OutlinedTextField(
+                        value = exerciseName,
+                        onValueChange = { exerciseName = it },
+                        label = { Text("Exercise name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            if (exerciseName.isBlank()) return@Button
+                            viewModel.addExercise(workout.id, exerciseName)
+                            exerciseName = ""
+                        }
+                    ) {
+                        Text("Add Exercise")
+                    }
+                }
             }
         }
     }

@@ -9,14 +9,21 @@ import kotlinx.coroutines.flow.Flow
 interface WorkoutDao {
 
     // ---------- WORKOUTS ----------
-    @Query("SELECT * FROM workouts")
-    fun getWorkouts(): Flow<List<WorkoutEntity>>
 
     @Insert
     suspend fun insertWorkout(workout: WorkoutEntity)
 
     @Query("UPDATE workouts SET name = :name WHERE id = :workoutId")
     suspend fun updateWorkout(workoutId: Int, name: String)
+
+    @Query("SELECT * FROM workouts WHERE id = :workoutId")
+    suspend fun getWorkoutById(workoutId: Int): WorkoutEntity
+
+    @Query("SELECT * FROM exercises WHERE workoutId = :workoutId")
+    suspend fun getExercisesForWorkout(workoutId: Int): List<ExerciseEntity>
+
+    @Query("SELECT * FROM sets WHERE exerciseId = :exerciseId")
+    suspend fun getSetsForExercise(exerciseId: Int): List<WorkoutSetEntity>
 
     @Query("DELETE FROM workouts WHERE id = :workoutId")
     suspend fun deleteWorkoutById(workoutId: Int)
@@ -25,8 +32,16 @@ interface WorkoutDao {
     @Insert
     suspend fun insertExercise(exercise: ExerciseEntity)
 
+
+    @Transaction
+    @Query("SELECT * FROM workouts")
+    fun getWorkoutsWithExercises(): Flow<List<WorkoutWithExercises>>
+
+
     @Query("DELETE FROM exercises WHERE id = :exerciseId")
     suspend fun deleteExerciseById(exerciseId: Int)
+
+
 
     // ---------- SETS ----------
     @Insert

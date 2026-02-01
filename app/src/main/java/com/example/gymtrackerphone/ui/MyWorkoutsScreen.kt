@@ -20,7 +20,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.platform.LocalContext
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyWorkoutsScreen(
     viewModel: WorkoutViewModel,
@@ -68,39 +73,75 @@ fun MyWorkoutsScreen(
 
                 LazyColumn {
                     items(workouts) { workout ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp)
-                                .clickable { onWorkoutClick(workout) }
+                        val context = LocalContext.current
+
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    viewModel.sendWorkoutToWatch(
+                                        context = context,
+                                        workoutId = workout.id
+                                    )
+                                    false // snap back, don't dismiss visually
+                                } else {
+                                    false
+                                }
+                            }
+                        )
+
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = false,
+                            enableDismissFromEndToStart = true,
+                            backgroundContent = {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 24.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Text(
+                                        "Send to Watch",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
                         ) {
-                            Row(
+                            Card(
                                 modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                                    .clickable { onWorkoutClick(workout) }
                             ) {
-                                Text(workout.name)
+                                Row(
+                                    modifier = Modifier
+                                        .padding(16.dp)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(workout.name)
 
-                                Row {
-                                    IconButton(
-                                        onClick = {
-                                            textInput = workout.name
-                                            editingWorkoutId = workout.id
-                                            focusRequester.requestFocus()
-                                            keyboardController?.show()
+                                    Row {
+                                        IconButton(
+                                            onClick = {
+                                                textInput = workout.name
+                                                editingWorkoutId = workout.id
+                                                focusRequester.requestFocus()
+                                                keyboardController?.show()
+                                            }
+                                        ) {
+                                            Icon(Icons.Outlined.Edit, "Edit")
                                         }
-                                    ) {
-                                        Icon(Icons.Outlined.Edit, "Edit")
-                                    }
 
-                                    IconButton(
-                                        onClick = {
-                                            viewModel.deleteWorkout(workout.id)
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.deleteWorkout(workout.id)
+                                            }
+                                        ) {
+                                            Icon(Icons.Outlined.Delete, "Delete")
                                         }
-                                    ) {
-                                        Icon(Icons.Outlined.Delete, "Delete")
                                     }
                                 }
                             }
@@ -129,7 +170,7 @@ fun MyWorkoutsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
 
                     OutlinedTextField(
@@ -142,7 +183,7 @@ fun MyWorkoutsScreen(
 
                     )
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
 
                     Button(
                         modifier = Modifier.fillMaxWidth(),
@@ -168,8 +209,6 @@ fun MyWorkoutsScreen(
                     }
                 }
             }
-                Spacer(Modifier.height(8.dp))
-
             }
         }
 }

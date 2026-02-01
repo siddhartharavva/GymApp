@@ -3,10 +3,14 @@ package com.example.gymtrackerphone.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymtrackerphone.data.repository.WorkoutRepository
+import com.example.gymtrackerphone.sync.dto.ExerciseTemplateDto
+import com.example.gymtrackerphone.sync.dto.SetTemplateDto
+import com.example.gymtrackerphone.sync.dto.WorkoutTemplateDto
+import com.example.gymtrackerphone.sync.sender.WorkoutSender
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
+import android.content.Context
 class WorkoutViewModel(
     private val repository: WorkoutRepository
 ) : ViewModel() {
@@ -24,6 +28,41 @@ class WorkoutViewModel(
 
     fun deleteWorkout(workoutId: Int) = launch {
         repository.deleteWorkout(workoutId)
+    }
+
+    /** Builds DTO only – NO sending, NO context */
+    suspend fun buildWorkoutTemplate(workoutId: Int): WorkoutTemplateDto {
+        val workout = repository.getWorkoutById(workoutId)
+        val exercises = repository.getExercisesForWorkout(workoutId)
+
+        return WorkoutTemplateDto(
+            workoutId = workout.id,
+            name = workout.name,
+            exercises = exercises.map { exercise ->
+                val sets = repository.getSetsForExercise(exercise.id)
+                ExerciseTemplateDto(
+                    name = exercise.name,
+                    sets = sets.map {
+                        SetTemplateDto(
+                            minReps = it.minReps,
+                            maxReps = it.maxReps ?: it.minReps,
+                            weight = it.weight,
+                            restSeconds = it.restSeconds
+                        )
+                    }
+                )
+            }
+        )
+    }
+
+    fun sendWorkoutToWatch(
+        context: Context,
+        workoutId: Int
+    ) {
+        viewModelScope.launch {
+            val dto = buildWorkoutTemplate(workoutId)
+            WorkoutSender.sendWorkout(context, dto)
+        }
     }
 
     fun addExercise(workoutId: Int, name: String) = launch {

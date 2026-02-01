@@ -1,30 +1,28 @@
 package com.example.gymtrackerphone.data.mapper
 
 import com.example.gymtrackerphone.data.model.*
-import com.example.gymtrackerphone.data.relation.ExerciseWithSets
-import com.example.gymtrackerphone.data.relation.WorkoutWithExercises
+import com.example.gymtrackerphone.data.relation.*
+
+
 
 fun WorkoutWithExercises.toUi(): WorkoutUi =
     WorkoutUi(
-        id = workout.id
-            ?: error("Workout ID is null. Database corruption."),
+        id = workout.id,
         name = workout.name,
         exercises = exercises.map { it.toUi() }
     )
 
 fun ExerciseWithSets.toUi(): ExerciseUi =
     ExerciseUi(
-        id = exercise.id
-            ?: error("Exercise ID is null. Database corruption."),
+        id = exercise.id,
         name = exercise.name,
-        sets = sets.map { set ->
+        sets = sets.map {
             WorkoutSetUi(
-                id = set.id
-                    ?: error("WorkoutSet ID is null. Database corruption."),
-                minReps = set.minReps,
-                maxReps = set.maxReps ?: set.minReps,
-                weight = set.weight,
-                restSeconds = set.restSeconds
+                id = it.id,
+                minReps = it.minReps,
+                maxReps = it.maxReps ?: it.minReps,
+                weight = it.weight,
+                restSeconds = it.restSeconds
             )
         }
     )

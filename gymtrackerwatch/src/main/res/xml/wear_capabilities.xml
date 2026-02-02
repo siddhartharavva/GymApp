@@ -1,0 +1,3 @@
+<capabilities xmlns:android="http://schemas.android.com/apk/res/android">
+    <capability android:name="gymtracker_phone" />
+</capabilities>

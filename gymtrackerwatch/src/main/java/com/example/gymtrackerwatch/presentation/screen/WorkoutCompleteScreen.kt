@@ -34,6 +34,7 @@ fun WorkoutCompleteScreen(
                 )
 
                 Button(
+                    enabled = vm.workout != null,
                     onClick = {
                         vm.sendWorkoutAndReset(context)   // ✅ CHANGE THIS
                     },

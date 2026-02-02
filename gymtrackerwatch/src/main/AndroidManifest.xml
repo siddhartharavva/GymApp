@@ -32,10 +32,9 @@
             </intent-filter>
         </service>
 
-        <!-- Standalone watch app -->
         <meta-data
-            android:name="com.google.android.wearable.standalone"
-            android:value="true" />
+            android:name="com.google.android.wearable.capability"
+            android:resource="@xml/wear_capabilities" />
 
     </application>
 

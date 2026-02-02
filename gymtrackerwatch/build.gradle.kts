@@ -10,7 +10,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.yourname.gymtracker"
+        applicationId = "com.yourname.gymtracker.watch"
         minSdk = 30
         targetSdk = 34
         versionCode = 1
@@ -71,10 +71,10 @@ dependencies {
 
     // Wear Compose (Material 2 – correct for Wear)
     implementation("androidx.wear.compose:compose-material:1.3.1")
-
     // Navigation (DO NOT use 2.9.x)
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
+

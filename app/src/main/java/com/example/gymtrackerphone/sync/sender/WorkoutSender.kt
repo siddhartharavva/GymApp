@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.example.gymtrackerphone.sync.WorkoutTransfer
 import com.example.gymtrackerphone.sync.dto.WorkoutTemplateDto
+import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import kotlinx.serialization.encodeToString
@@ -20,6 +21,8 @@ object WorkoutSender {
         }.asPutDataRequest().apply {
             setUrgent()
         }
+        Wearable.getCapabilityClient(context)
+            .getCapability("phone_receiver", CapabilityClient.FILTER_REACHABLE)
 
         Wearable.getDataClient(context)
             .putDataItem(request)

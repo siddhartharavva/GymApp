@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-02-01T20:24:10.794471Z">
+        <DropdownSelection timestamp="2026-02-02T09:21:05.473081Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=RZAY600KRLT" />
@@ -15,10 +15,10 @@
       </SelectionState>
       <SelectionState runConfigName="gymtrackerwatch">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-02-02T03:47:20.704572Z">
+        <DropdownSelection timestamp="2026-02-02T09:21:11.927634Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=/Users/siddhartharavva/.android/avd/Galaxy_watch_6_classic.avd" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=RZAY600KRLT" />
             </handle>
           </Target>
         </DropdownSelection>

@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 class ActiveWorkoutViewModel : ViewModel() {
-
+    private var hasSentResult = false
 
     enum class WorkoutUiState {
         EXERCISE,
@@ -86,19 +86,14 @@ class ActiveWorkoutViewModel : ViewModel() {
             }
         )
     }
-
     fun sendWorkoutAndReset(context: Context) {
-        val completed = toCompletedWorkout()
+        val w = workout ?: return  // 🔒 hard guard
 
-        // ✅ SEND TO PHONE
+        val completed = toCompletedWorkout()
         WorkoutResultSender.send(context, completed)
 
-        // ✅ RESET STATE
         workout = null
         workoutLoaded = false
-        restRemainingSeconds = 0
-        isRestRunning = false
-
         workoutUiState = WorkoutUiState.EXERCISE
         _hasWorkout.value = false
     }

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
+    <meta-data
+        android:name="com.google.android.wearable.capability"
+        android:resource="@xml/wear_capabilities" />
     <application
         android:name=".GymTrackerApp"
         android:allowBackup="true"
@@ -24,6 +26,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".sync.receiver.WorkoutResultReceiverService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.BIND_LISTENER" />
+            </intent-filter>
+        </service>
+
+
     </application>
 
 </manifest>

@@ -13,7 +13,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.yourname.gymtracker.phone"
+        applicationId ="com.example.gymtracker"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

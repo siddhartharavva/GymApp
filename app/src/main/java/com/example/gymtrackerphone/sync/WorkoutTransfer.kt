@@ -6,4 +6,5 @@ object WorkoutTransfer {
     const val SEND_COMPLETED_WORKOUT = "/send_completed_workout"
     const val COMPLETED_WORKOUT_ACK = "/completed_workout_ack"
 
+    const val KEY_UPDATED_AT = "updated_at"
 }

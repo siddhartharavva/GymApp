@@ -7,7 +7,6 @@ import com.example.gymtrackerphone.sync.dto.CompletedWorkoutDto
 fun CompletedWorkoutDto.toEntities(): CompletedWorkoutWithExercises {
 
     val workoutEntity = CompletedWorkoutEntity(
-        workoutId = workoutId,
         name = name,
         startedAtEpochMs = startedAtEpochMs,
         completedAtEpochMs = completedAtEpochMs

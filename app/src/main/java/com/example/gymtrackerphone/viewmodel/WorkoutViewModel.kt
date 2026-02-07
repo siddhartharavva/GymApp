@@ -15,6 +15,13 @@ class WorkoutViewModel(
     private val repository: WorkoutRepository
 ) : ViewModel() {
 
+    val pastWorkouts =
+        WorkoutRepository.pastWorkouts
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyList()
+            )
     val workouts = repository.workouts
         .stateIn(
             viewModelScope,

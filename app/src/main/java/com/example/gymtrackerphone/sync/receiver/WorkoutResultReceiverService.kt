@@ -1,6 +1,7 @@
 package com.example.gymtrackerphone.sync.receiver
 
 import android.util.Log
+import com.example.gymtrackerphone.data.repository.WorkoutRepository
 import com.example.gymtrackerphone.sync.WorkoutTransfer
 import com.example.gymtrackerphone.sync.dto.CompletedWorkoutDto
 import com.google.android.gms.wearable.DataEvent
@@ -28,6 +29,8 @@ class WorkoutResultReceiverService : WearableListenerService() {
 
                 val workout =
                     Json.decodeFromString<CompletedWorkoutDto>(json)
+
+                WorkoutRepository.addWorkout(workout)
 
                 // ✅ Save to DB here
                 Log.e("WorkoutReceiver", "✅ Workout stored")

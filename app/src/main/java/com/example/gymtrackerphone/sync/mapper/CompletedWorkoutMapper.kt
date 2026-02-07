@@ -1,4 +1,4 @@
-package com.example.gymtrackerphone.mapper
+package com.example.gymtrackerphone.sync.mapper
 
 import com.example.gymtrackerphone.data.entity.*
 import com.example.gymtrackerphone.data.relation.*
@@ -7,6 +7,7 @@ import com.example.gymtrackerphone.sync.dto.CompletedWorkoutDto
 fun CompletedWorkoutDto.toEntities(): CompletedWorkoutWithExercises {
 
     val workoutEntity = CompletedWorkoutEntity(
+        templateWorkoutId = workoutId,
         name = name,
         startedAtEpochMs = startedAtEpochMs,
         completedAtEpochMs = completedAtEpochMs
@@ -15,7 +16,7 @@ fun CompletedWorkoutDto.toEntities(): CompletedWorkoutWithExercises {
     val exerciseRelations = exercises.mapIndexed { exIndex, exDto ->
 
         val exerciseEntity = CompletedExerciseEntity(
-            workoutId = workoutId,
+            workoutId = 0, // filled after insert
             name = exDto.name,
             orderIndex = exIndex
         )

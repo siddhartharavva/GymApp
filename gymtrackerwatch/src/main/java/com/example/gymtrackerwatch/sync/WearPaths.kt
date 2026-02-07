@@ -5,4 +5,5 @@ object WearPaths {
     const val WORKOUT = "/workout"
     const val START_WORKOUT = "/start_workout"
     const val SEND_COMPLETED_WORKOUT = "/send_completed_workout"
+    const val COMPLETED_WORKOUT_ACK = "/completed_workout_ack"
 }

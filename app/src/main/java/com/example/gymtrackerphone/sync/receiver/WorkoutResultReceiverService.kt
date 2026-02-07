@@ -1,6 +1,7 @@
 package com.example.gymtrackerphone.sync.receiver
 
 import android.util.Log
+import com.example.gymtrackerphone.GymTrackerApp
 import com.example.gymtrackerphone.data.repository.WorkoutRepository
 import com.example.gymtrackerphone.sync.WorkoutTransfer
 import com.example.gymtrackerphone.sync.dto.CompletedWorkoutDto
@@ -8,13 +9,27 @@ import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 
-import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class WorkoutResultReceiverService : WearableListenerService() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val repository by lazy {
+        val app = applicationContext as GymTrackerApp
+        WorkoutRepository(app.database)
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         dataEvents.forEach { event ->
@@ -30,20 +45,26 @@ class WorkoutResultReceiverService : WearableListenerService() {
                 val workout =
                     Json.decodeFromString<CompletedWorkoutDto>(json)
 
-                WorkoutRepository.addWorkout(workout)
+                scope.launch {
+                    try {
+                        repository.addCompletedWorkout(workout)
+                        Log.e("WorkoutReceiver", "✅ Workout stored")
 
-                // ✅ Save to DB here
-                Log.e("WorkoutReceiver", "✅ Workout stored")
+                        // ✅ SEND ACK BACK AS DATA (only after DB success)
+                        val ack =
+                            PutDataMapRequest.create(WorkoutTransfer.COMPLETED_WORKOUT_ACK)
+                                .apply {
+                                    dataMap.putLong("timestamp", System.currentTimeMillis())
+                                }
+                                .asPutDataRequest()
+                                .setUrgent()
 
-                // ✅ SEND ACK BACK AS DATA
-                val ack = PutDataMapRequest.create(WorkoutTransfer.COMPLETED_WORKOUT_ACK)
-                    .apply {
-                        dataMap.putLong("timestamp", System.currentTimeMillis())
+                        Wearable.getDataClient(this@WorkoutResultReceiverService)
+                            .putDataItem(ack)
+                    } catch (e: Exception) {
+                        Log.e("WorkoutReceiver", "❌ Failed to store workout", e)
                     }
-                    .asPutDataRequest()
-                    .setUrgent()
-
-                Wearable.getDataClient(this).putDataItem(ack)
+                }
 
             } catch (e: Exception) {
                 Log.e("WorkoutReceiver", "❌ Failed", e)

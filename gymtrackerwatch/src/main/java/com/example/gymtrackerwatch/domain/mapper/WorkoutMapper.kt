@@ -18,6 +18,17 @@ fun WorkoutTemplateDto.toActiveWorkout(): ActiveWorkout {
                         targetWeight = it.weight,
                         plannedRestSeconds = it.restSeconds
                     )
+                },
+                history = ex.history.map { history ->
+                    ExerciseHistory(
+                        completedAtEpochMs = history.completedAtEpochMs,
+                        sets = history.sets.map { set ->
+                            SetHistory(
+                                reps = set.reps,
+                                weight = set.weight
+                            )
+                        }
+                    )
                 }
             )
         }

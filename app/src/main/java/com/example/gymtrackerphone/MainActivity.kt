@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
 
                 val app = application as GymTrackerApp
-                val repository = WorkoutRepository(app.database.workoutDao())
+                val repository = WorkoutRepository(app.database)
 
                 val workoutViewModel: WorkoutViewModel = viewModel(
                     factory = WorkoutViewModelFactory(repository)
@@ -69,4 +69,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

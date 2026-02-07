@@ -9,9 +9,12 @@ import com.example.gymtrackerphone.data.entity.*
     entities = [
         WorkoutEntity::class,
         ExerciseEntity::class,
-        WorkoutSetEntity::class
+        WorkoutSetEntity::class,
+        CompletedWorkoutEntity::class,
+        CompletedExerciseEntity::class,
+        CompletedSetEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

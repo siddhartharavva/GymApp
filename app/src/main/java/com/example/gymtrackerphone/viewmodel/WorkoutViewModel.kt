@@ -3,7 +3,9 @@ package com.example.gymtrackerphone.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gymtrackerphone.data.repository.WorkoutRepository
+import com.example.gymtrackerphone.sync.dto.ExerciseHistoryDto
 import com.example.gymtrackerphone.sync.dto.ExerciseTemplateDto
+import com.example.gymtrackerphone.sync.dto.SetHistoryDto
 import com.example.gymtrackerphone.sync.dto.SetTemplateDto
 import com.example.gymtrackerphone.sync.dto.WorkoutTemplateDto
 import com.example.gymtrackerphone.sync.sender.WorkoutSender
@@ -16,7 +18,7 @@ class WorkoutViewModel(
 ) : ViewModel() {
 
     val pastWorkouts =
-        WorkoutRepository.pastWorkouts
+        repository.pastWorkouts
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
@@ -41,11 +43,48 @@ class WorkoutViewModel(
     suspend fun buildWorkoutTemplate(workoutId: Int): WorkoutTemplateDto {
         val workout = repository.getWorkoutById(workoutId)
         val exercises = repository.getExercisesForWorkout(workoutId)
+        val recentCompleted =
+            repository.getRecentCompletedWorkouts(
+                templateWorkoutId = workoutId,
+                limit = 2
+            )
+
+        val historyByExerciseIndex =
+            mutableMapOf<Int, MutableList<ExerciseHistoryDto>>()
+
+        recentCompleted.forEach { completed ->
+            val completedAt = completed.workout.completedAtEpochMs
+
+            completed.exercises
+                .sortedBy { it.exercise.orderIndex }
+                .forEach { exWithSets ->
+                    val index = exWithSets.exercise.orderIndex
+                    val sets =
+                        exWithSets.sets
+                            .sortedBy { it.orderIndex }
+                            .map { set ->
+                                SetHistoryDto(
+                                    reps = set.reps,
+                                    weight = set.weight
+                                )
+                            }
+                    if (sets.isNotEmpty()) {
+                        val list =
+                            historyByExerciseIndex.getOrPut(index) { mutableListOf() }
+                        list.add(
+                            ExerciseHistoryDto(
+                                completedAtEpochMs = completedAt,
+                                sets = sets
+                            )
+                        )
+                    }
+                }
+        }
 
         return WorkoutTemplateDto(
             workoutId = workout.id,
             name = workout.name,
-            exercises = exercises.map { exercise ->
+            exercises = exercises.mapIndexed { index, exercise ->
                 val sets = repository.getSetsForExercise(exercise.id)
                 ExerciseTemplateDto(
                     name = exercise.name,
@@ -56,7 +95,8 @@ class WorkoutViewModel(
                             weight = it.weight,
                             restSeconds = it.restSeconds
                         )
-                    }
+                    },
+                    history = historyByExerciseIndex[index] ?: emptyList()
                 )
             }
         )

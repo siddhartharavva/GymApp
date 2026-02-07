@@ -2,6 +2,7 @@ package com.example.gymtrackerphone.data.dao
 
 import androidx.room.*
 import com.example.gymtrackerphone.data.entity.*
+import com.example.gymtrackerphone.data.relation.CompletedWorkoutWithExercises
 import com.example.gymtrackerphone.data.relation.WorkoutWithExercises
 import kotlinx.coroutines.flow.Flow
 
@@ -58,4 +59,31 @@ interface WorkoutDao {
 
     @Query("UPDATE sets SET restSeconds = :rest WHERE id = :setId")
     suspend fun updateRest(setId: Int, rest: Int)
+
+    // ---------- COMPLETED WORKOUTS ----------
+
+    @Insert
+    suspend fun insertCompletedWorkout(workout: CompletedWorkoutEntity): Long
+
+    @Insert
+    suspend fun insertCompletedExercise(exercise: CompletedExerciseEntity): Long
+
+    @Insert
+    suspend fun insertCompletedSets(sets: List<CompletedSetEntity>)
+
+    @Transaction
+    @Query("SELECT * FROM completed_workouts ORDER BY completedAtEpochMs DESC")
+    fun getCompletedWorkouts(): Flow<List<CompletedWorkoutWithExercises>>
+
+    @Transaction
+    @Query(
+        "SELECT * FROM completed_workouts " +
+            "WHERE templateWorkoutId = :templateId " +
+            "ORDER BY completedAtEpochMs DESC " +
+            "LIMIT :limit"
+    )
+    suspend fun getRecentCompletedWorkouts(
+        templateId: Int,
+        limit: Int
+    ): List<CompletedWorkoutWithExercises>
 }

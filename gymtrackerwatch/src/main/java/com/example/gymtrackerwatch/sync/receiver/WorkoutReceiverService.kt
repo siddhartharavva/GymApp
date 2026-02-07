@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.gymtrackerwatch.sync.WearPaths
 import com.example.gymtrackerwatch.sync.dto.WorkoutTemplateDto
 import com.example.gymtrackerwatch.sync.store.IncomingWorkoutStore
+import com.example.gymtrackerwatch.sync.store.WorkoutAckStore
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -31,6 +32,12 @@ class WorkoutReceiverService : WearableListenerService() {
 
             val item = event.dataItem
             val path = item.uri.path
+
+            if (path == WearPaths.COMPLETED_WORKOUT_ACK) {
+                Log.d(TAG, "✅ Completed workout ACK received")
+                WorkoutAckStore.signalAck()
+                return@forEach
+            }
 
             if (path != WearPaths.START_WORKOUT) {
                 Log.d(TAG, "Ignoring unrelated path: $path")

@@ -1,45 +1,263 @@
 package com.example.gymtrackerphone.ui
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import com.example.gymtrackerphone.data.model.CompletedSetUi
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun PastWorkoutsScreen(
     viewModel: WorkoutViewModel
 ) {
     val workouts by viewModel.pastWorkouts.collectAsState()
+    var selectedFilter by remember { mutableStateOf<String?>(null) }
 
-    if (workouts.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No workouts yet",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+    val workoutFilters =
+        remember(workouts) {
+            workouts
+                .map { it.name }
+                .distinct()
+                .sorted()
         }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(workouts) { workout ->
+
+    val filteredWorkouts =
+        workouts.filter { workout ->
+            selectedFilter == null || workout.name == selectedFilter
+        }
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        if (filteredWorkouts.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
-                    text = workout.name,
-                    style = MaterialTheme.typography.bodyLarge
+                    text = if (workouts.isEmpty()) "No workouts yet" else "No matches",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 12.dp,
+                    bottom = 88.dp // room for filter bar above nav
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredWorkouts, key = { it.id }) { workout ->
+                    val dateText = formatDateOnly(workout.completedAtEpochMs)
+                    val timeText = formatTimeOnly(workout.completedAtEpochMs)
+                    val durationText =
+                        formatDuration(
+                            workout.startedAtEpochMs,
+                            workout.completedAtEpochMs
+                        )
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = workout.name,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Text(
+                                        text = "$durationText • ${workout.exercises.size} exercises",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Column(
+                                    horizontalAlignment = Alignment.End
+                                ) {
+                                    Text(
+                                        text = timeText,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = dateText,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            workout.exercises.forEach { ex ->
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = ex.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    val setScroll = rememberScrollState()
+                                    Row(
+                                        modifier = Modifier
+                                            .horizontalScroll(setScroll)
+                                            .fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        ex.sets.forEachIndexed { index, set ->
+                                            SetChip(
+                                                index = index + 1,
+                                                set = set
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (workoutFilters.isNotEmpty()) {
+            val scrollState = rememberScrollState()
+
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+                tonalElevation = 3.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(scrollState)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = selectedFilter == null,
+                        onClick = { selectedFilter = null },
+                        label = { Text("All") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
+
+                    workoutFilters.forEach { name ->
+                        FilterChip(
+                            selected = selectedFilter == name,
+                            onClick = { selectedFilter = name },
+                            label = { Text(name) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatDateOnly(epochMs: Long): String {
+    val formatter = SimpleDateFormat("MMM d", Locale.getDefault())
+    return formatter.format(Date(epochMs))
+}
+
+private fun formatTimeOnly(epochMs: Long): String {
+    val formatter = SimpleDateFormat("h:mm a", Locale.getDefault())
+    return formatter.format(Date(epochMs))
+}
+
+private fun formatWeight(weight: Float): String =
+    if (weight % 1f == 0f) weight.toInt().toString() else weight.toString()
+
+private fun formatDuration(startedAt: Long, completedAt: Long): String {
+    val mins = ((completedAt - startedAt) / 60000L).coerceAtLeast(1)
+    return "${mins}m"
+}
+
+@Composable
+private fun SetChip(
+    index: Int,
+    set: CompletedSetUi
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 2.dp,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Set $index",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${set.reps}x${formatWeight(set.weight)}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

@@ -4,5 +4,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ExerciseTemplateDto(
     val name: String,
-    val sets: List<SetTemplateDto>
+    val sets: List<SetTemplateDto>,
+    val history: List<ExerciseHistoryDto> = emptyList()
 )

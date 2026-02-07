@@ -20,8 +20,11 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     // idle → incoming
     LaunchedEffect(hasWorkout) {
         if (hasWorkout) {
-            navController.navigate("incoming") {
-                popUpTo("idle") { inclusive = true }
+            if (navController.currentDestination?.route != "incoming") {
+                navController.navigate("incoming") {
+                    popUpTo("idle") { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }
@@ -29,8 +32,23 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     // workout → complete (global, once)
     LaunchedEffect(vm.isWorkoutCompleted) {
         if (vm.isWorkoutCompleted) {
-            navController.navigate("complete") {
-                popUpTo("workout") { inclusive = true }
+            if (navController.currentDestination?.route != "complete") {
+                navController.navigate("complete") {
+                    popUpTo("workout") { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    // when workout resets to null, go back to idle
+    LaunchedEffect(vm.workout) {
+        if (vm.workout == null) {
+            if (navController.currentDestination?.route != "idle") {
+                navController.navigate("idle") {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }

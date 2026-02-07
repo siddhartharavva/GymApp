@@ -26,3 +26,31 @@ fun ExerciseWithSets.toUi(): ExerciseUi =
             )
         }
     )
+
+fun CompletedWorkoutWithExercises.toUi(): CompletedWorkoutUi =
+    CompletedWorkoutUi(
+        id = workout.workoutId,
+        templateWorkoutId = workout.templateWorkoutId,
+        name = workout.name,
+        startedAtEpochMs = workout.startedAtEpochMs,
+        completedAtEpochMs = workout.completedAtEpochMs,
+        exercises = exercises
+            .sortedBy { it.exercise.orderIndex }
+            .map { it.toUi() }
+    )
+
+fun CompletedExerciseWithSets.toUi(): CompletedExerciseUi =
+    CompletedExerciseUi(
+        name = exercise.name,
+        sets = sets
+            .sortedBy { it.orderIndex }
+            .map {
+                CompletedSetUi(
+                    reps = it.reps,
+                    weight = it.weight,
+                    actualRestSeconds = it.actualRestSeconds,
+                    skippedRest = it.skippedRest,
+                    completedAtEpochMs = it.completedAtEpochMs
+                )
+            }
+    )

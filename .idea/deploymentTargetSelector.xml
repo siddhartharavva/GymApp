@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-02-03T18:20:04.347289Z">
+        <DropdownSelection timestamp="2026-02-07T13:22:13.796895Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=RZCX61JMFSX" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=RZAY600KRLT" />
             </handle>
           </Target>
         </DropdownSelection>
@@ -15,7 +15,7 @@
       </SelectionState>
       <SelectionState runConfigName="gymtrackerwatch">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-02-02T10:07:38.715334Z">
+        <DropdownSelection timestamp="2026-02-07T13:22:18.420033Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=RZAY600KRLT" />

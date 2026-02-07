@@ -14,12 +14,15 @@ import com.example.gymtrackerwatch.domain.mapper.toActiveWorkout
 import com.example.gymtrackerwatch.sync.dto.WorkoutTemplateDto
 import com.example.gymtrackerwatch.sync.sender.WorkoutResultSender
 import com.example.gymtrackerwatch.sync.store.IncomingWorkoutStore
+import com.example.gymtrackerwatch.sync.store.WorkoutAckStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 class ActiveWorkoutViewModel : ViewModel() {
     private var hasSentResult = false
+    private var waitingForAck = false
+    private var rotaryAccum = 0f
 
     enum class WorkoutUiState {
         EXERCISE,
@@ -37,6 +40,7 @@ class ActiveWorkoutViewModel : ViewModel() {
     }
 
     fun goToConfirmReps() {
+        initPendingForCurrentSet()
         workoutUiState = WorkoutUiState.CONFIRM_REPS
     }
 
@@ -46,6 +50,26 @@ class ActiveWorkoutViewModel : ViewModel() {
 
     fun goToRest() {
         workoutUiState = WorkoutUiState.REST
+    }
+
+    var pendingReps by mutableIntStateOf(0)
+        private set
+
+    var pendingWeight by mutableStateOf(0f)
+        private set
+
+    fun updatePendingReps(value: Int) {
+        pendingReps = value.coerceAtLeast(0)
+    }
+
+    fun updatePendingWeight(value: Float) {
+        pendingWeight = value.coerceAtLeast(0f)
+    }
+
+    private fun initPendingForCurrentSet() {
+        val set = currentSet()
+        pendingReps = set.completedReps ?: set.targetMaxReps
+        pendingWeight = set.completedWeight ?: set.targetWeight
     }
     fun toCompletedWorkout(): CompletedWorkout {
         val w = workout ?: error("Workout not finished")
@@ -92,10 +116,18 @@ class ActiveWorkoutViewModel : ViewModel() {
         val completed = toCompletedWorkout()
         WorkoutResultSender.send(context, completed)
 
-        workout = null
-        workoutLoaded = false
-        workoutUiState = WorkoutUiState.EXERCISE
-        _hasWorkout.value = false
+        waitingForAck = true
+    }
+
+    fun endWorkoutEarly() {
+        val w = workout ?: return
+        if (w.completedAtEpochMs != null) return
+
+        workoutUiState = WorkoutUiState.COMPLETE
+        workout = w.copy(
+            completedAtEpochMs = System.currentTimeMillis(),
+            pendingSync = true
+        )
     }
 
     // ---- CORE STATE ----
@@ -119,6 +151,17 @@ class ActiveWorkoutViewModel : ViewModel() {
                     // defer to next frame
                     kotlinx.coroutines.yield()
                     loadWorkout()
+                }
+        }
+
+        viewModelScope.launch {
+            WorkoutAckStore.ackReceived
+                .filter { it }
+                .collect {
+                    if (waitingForAck) {
+                        resetAfterAck()
+                    }
+                    WorkoutAckStore.consume()
                 }
         }
     }
@@ -252,5 +295,41 @@ class ActiveWorkoutViewModel : ViewModel() {
         workoutLoaded = true
         workoutUiState = WorkoutUiState.EXERCISE
         _hasWorkout.value = true
+    }
+
+    private fun resetAfterAck() {
+        workout = null
+        workoutLoaded = false
+        workoutUiState = WorkoutUiState.EXERCISE
+        _hasWorkout.value = false
+        waitingForAck = false
+        loadWorkout()
+    }
+
+    fun handleRotaryDelta(delta: Float): Boolean {
+        val stepPx = 1f
+        when (workoutUiState) {
+            WorkoutUiState.CONFIRM_REPS -> {
+                rotaryAccum += delta
+                val steps = (rotaryAccum / stepPx).toInt()
+                if (steps != 0) {
+                    rotaryAccum -= steps * stepPx
+                    updatePendingReps(pendingReps + steps)
+                }
+                return true
+            }
+
+            WorkoutUiState.CONFIRM_WEIGHT -> {
+                rotaryAccum += delta
+                val steps = (rotaryAccum / stepPx).toInt()
+                if (steps != 0) {
+                    rotaryAccum -= steps * stepPx
+                    updatePendingWeight(pendingWeight + (steps * 2.5f))
+                }
+                return true
+            }
+
+            else -> return false
+        }
     }
 }

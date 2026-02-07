@@ -6,8 +6,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.*
 import com.example.gymtrackerwatch.viewmodel.ActiveWorkoutViewModel
+import com.example.gymtrackerwatch.presentation.util.formatHistorySets
+import com.example.gymtrackerwatch.presentation.util.formatWeight
 
 @Composable
 fun ExerciseScreen(
@@ -15,6 +18,7 @@ fun ExerciseScreen(
 ) {
     val ex = vm.currentExercise()
     val set = vm.currentSet()
+    val historyStyle = MaterialTheme.typography.caption1.copy(lineHeight = 12.sp)
 
     Scaffold(
         timeText = { TimeText() }
@@ -27,7 +31,7 @@ fun ExerciseScreen(
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
 
                 Text(
@@ -46,9 +50,26 @@ fun ExerciseScreen(
                 )
 
                 Text(
-                    text = "${set.targetWeight} kg",
+                    text = "${formatWeight(set.targetWeight)}kg",
                     style = MaterialTheme.typography.title3
                 )
+
+                if (ex.history.isNotEmpty()) {
+                    Spacer(Modifier.height(2.dp))
+
+                    Text(
+                        text = "Last 2 sessions",
+                        style = historyStyle
+                    )
+
+                    ex.history.take(2).forEachIndexed { index, session ->
+                        val label = if (index == 0) "Last" else "Prev"
+                        Text(
+                            text = "$label: ${formatHistorySets(session.sets)}",
+                            style = historyStyle
+                        )
+                    }
+                }
 
                 Spacer(Modifier.height(4.dp))
 

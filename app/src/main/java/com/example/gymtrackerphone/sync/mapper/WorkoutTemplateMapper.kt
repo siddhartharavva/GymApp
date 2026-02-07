@@ -25,7 +25,8 @@ fun mapToTemplate(
                     weight = set.weight,
                     restSeconds = set.restSeconds
                 )
-            }
+            },
+            history = emptyList()
         )
     }
 

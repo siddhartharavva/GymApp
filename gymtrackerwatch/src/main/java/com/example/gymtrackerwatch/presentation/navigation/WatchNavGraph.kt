@@ -10,12 +10,18 @@ import com.example.gymtrackerwatch.presentation.screen.*
 import com.example.gymtrackerwatch.sync.store.IncomingWorkoutStore
 import com.example.gymtrackerwatch.viewmodel.ActiveWorkoutViewModel
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 
 
 @Composable
 fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     val navController = rememberNavController()
     val hasWorkout by vm.hasWorkout.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        vm.tryResendPending(context)
+    }
 
     // idle → incoming
     LaunchedEffect(hasWorkout) {

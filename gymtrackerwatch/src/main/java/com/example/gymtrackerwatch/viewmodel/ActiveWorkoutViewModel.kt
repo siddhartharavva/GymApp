@@ -15,14 +15,20 @@ import com.example.gymtrackerwatch.sync.dto.WorkoutTemplateDto
 import com.example.gymtrackerwatch.sync.sender.WorkoutResultSender
 import com.example.gymtrackerwatch.sync.store.IncomingWorkoutStore
 import com.example.gymtrackerwatch.sync.store.WorkoutAckStore
+import com.example.gymtrackerwatch.sync.store.PendingWorkoutStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 class ActiveWorkoutViewModel : ViewModel() {
     private var hasSentResult = false
-    private var waitingForAck = false
+    private var waitingForAck by mutableStateOf(false)
     private var rotaryAccum = 0f
+    private var pendingWorkout: CompletedWorkout? = null
+    private var retryJob: Job? = null
+    private var appContext: Context? = null
+    val isWaitingForAck: Boolean
+        get() = waitingForAck
 
     enum class WorkoutUiState {
         EXERCISE,
@@ -112,12 +118,26 @@ class ActiveWorkoutViewModel : ViewModel() {
         )
     }
     fun sendWorkoutAndReset(context: Context) {
+        if (waitingForAck) return
         val w = workout ?: return  // 🔒 hard guard
+        appContext = context.applicationContext
 
         val completed = toCompletedWorkout()
-        WorkoutResultSender.send(context, completed)
-
         waitingForAck = true
+        pendingWorkout = completed
+        PendingWorkoutStore.save(context, completed)
+        sendCompleted(context, completed)
+        startRetryLoop(context)
+    }
+
+    fun tryResendPending(context: Context) {
+        if (waitingForAck) return
+        appContext = context.applicationContext
+        val pending = PendingWorkoutStore.load(context) ?: return
+        pendingWorkout = pending
+        waitingForAck = true
+        sendCompleted(context, pending)
+        startRetryLoop(context)
     }
 
     fun endWorkoutEarly() {
@@ -159,9 +179,7 @@ class ActiveWorkoutViewModel : ViewModel() {
             WorkoutAckStore.ackReceived
                 .filter { it }
                 .collect {
-                    if (waitingForAck) {
-                        resetAfterAck()
-                    }
+                    handleAck()
                     WorkoutAckStore.consume()
                 }
         }
@@ -304,7 +322,35 @@ class ActiveWorkoutViewModel : ViewModel() {
         workoutUiState = WorkoutUiState.EXERCISE
         _hasWorkout.value = false
         waitingForAck = false
+        pendingWorkout = null
+        retryJob?.cancel()
+        appContext?.let { PendingWorkoutStore.clear(it) }
         loadWorkout()
+    }
+
+    private fun handleAck() {
+        val hasPending =
+            appContext?.let { PendingWorkoutStore.hasPending(it) } ?: false
+        if (waitingForAck || hasPending || pendingWorkout != null) {
+            resetAfterAck()
+        }
+    }
+
+    private fun sendCompleted(context: Context, workout: CompletedWorkout) {
+        WorkoutResultSender.send(context, workout)
+    }
+
+    private fun startRetryLoop(context: Context) {
+        retryJob?.cancel()
+        retryJob = viewModelScope.launch {
+            var attempts = 0
+            while (waitingForAck && attempts < 5) {
+                delay(30_000)
+                if (!waitingForAck) break
+                pendingWorkout?.let { sendCompleted(context, it) }
+                attempts++
+            }
+        }
     }
 
     fun handleRotaryDelta(delta: Float): Boolean {

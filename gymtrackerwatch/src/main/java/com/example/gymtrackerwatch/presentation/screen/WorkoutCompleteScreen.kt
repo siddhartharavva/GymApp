@@ -34,16 +34,16 @@ fun WorkoutCompleteScreen(
                 )
 
                 Button(
-                    enabled = vm.workout != null,
+                    enabled = vm.workout != null && !vm.isWaitingForAck,
                     onClick = {
-                        vm.sendWorkoutAndReset(context)   // ✅ CHANGE THIS
+                        vm.sendWorkoutAndReset(context)
                     },
                     modifier = Modifier
                         .fillMaxWidth(0.75f)
                         .height(52.dp),
                     shape = RoundedCornerShape(50)
                 ) {
-                    Text("Send to Phone")
+                    Text(if (vm.isWaitingForAck) "Sending..." else "Send to Phone")
                 }
             }
         }

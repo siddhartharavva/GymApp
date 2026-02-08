@@ -1,5 +1,8 @@
 package com.example.gymtrackerphone
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,11 +27,23 @@ import com.example.gymtrackerphone.ui.HomeScreen
 import com.example.gymtrackerphone.ui.theme.GymTrackerPhoneTheme
 import com.example.gymtrackerphone.ui.WorkoutDetailsScreen
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModelFactory
+import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : ComponentActivity() {
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         setContent {
             GymTrackerPhoneTheme {
 

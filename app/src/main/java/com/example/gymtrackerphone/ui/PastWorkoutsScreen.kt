@@ -94,7 +94,7 @@ fun PastWorkoutsScreen(
                     start = 16.dp,
                     end = 16.dp,
                     top = 12.dp,
-                    bottom = 88.dp // room for filter bar above nav
+                    bottom = 140.dp // room for filter bar + nav + scroll overlap
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {

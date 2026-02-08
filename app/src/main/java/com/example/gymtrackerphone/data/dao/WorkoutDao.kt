@@ -78,7 +78,7 @@ interface WorkoutDao {
 
     // ---------- COMPLETED WORKOUTS ----------
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCompletedWorkout(workout: CompletedWorkoutEntity): Long
 
     @Insert

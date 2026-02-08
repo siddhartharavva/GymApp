@@ -6,7 +6,11 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "completed_workouts",
-    indices = [Index("templateWorkoutId")]
+    indices = [
+        Index("templateWorkoutId"),
+        Index("completedAtEpochMs"),
+        Index(value = ["templateWorkoutId", "completedAtEpochMs"], unique = true)
+    ]
 )
 data class CompletedWorkoutEntity(
     @PrimaryKey(autoGenerate = true) val workoutId: Int = 0,

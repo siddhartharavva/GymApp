@@ -5,9 +5,11 @@ import com.example.gymtrackerwatch.sync.WearPaths
 import com.example.gymtrackerwatch.sync.dto.WorkoutTemplateDto
 import com.example.gymtrackerwatch.sync.store.IncomingWorkoutStore
 import com.example.gymtrackerwatch.sync.store.WorkoutAckStore
+import com.example.gymtrackerwatch.sync.store.PendingWorkoutStore
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
+import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -35,6 +37,7 @@ class WorkoutReceiverService : WearableListenerService() {
 
             if (path == WearPaths.COMPLETED_WORKOUT_ACK) {
                 Log.d(TAG, "✅ Completed workout ACK received")
+                PendingWorkoutStore.clear(applicationContext)
                 WorkoutAckStore.signalAck()
                 return@forEach
             }
@@ -64,6 +67,16 @@ class WorkoutReceiverService : WearableListenerService() {
             } catch (e: SerializationException) {
                 Log.e(TAG, "❌ Failed to deserialize workout", e)
             }
+        }
+    }
+
+    override fun onMessageReceived(messageEvent: MessageEvent) {
+        if (messageEvent.path == WearPaths.COMPLETED_WORKOUT_ACK) {
+            Log.d(TAG, "✅ Completed workout ACK received (message)")
+            PendingWorkoutStore.clear(applicationContext)
+            WorkoutAckStore.signalAck()
+        } else {
+            Log.d(TAG, "Ignoring message path: ${messageEvent.path}")
         }
     }
 }

@@ -1,7 +1,6 @@
 package com.example.gymtrackerwatch.viewmodel
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -12,7 +11,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import androidx.lifecycle.ViewModel
 import com.example.gymtrackerwatch.domain.mapper.toActiveWorkout
-import com.example.gymtrackerwatch.sync.dto.WorkoutTemplateDto
 import com.example.gymtrackerwatch.sync.sender.WorkoutResultSender
 import com.example.gymtrackerwatch.sync.store.IncomingWorkoutStore
 import com.example.gymtrackerwatch.sync.store.WorkoutAckStore
@@ -22,7 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 class ActiveWorkoutViewModel : ViewModel() {
-    private var hasSentResult = false
     private var waitingForAck by mutableStateOf(false)
     private var rotaryAccum = 0f
     private var pendingWorkout: CompletedWorkout? = null
@@ -82,16 +79,10 @@ class ActiveWorkoutViewModel : ViewModel() {
     fun toCompletedWorkout(): CompletedWorkout {
         val w = workout ?: error("Workout not finished")
 
-        return CompletedWorkout(
-            workoutId = w.workoutId,
-            name = w.name,
-            startedAtEpochMs = w.startedAtEpochMs,
-            completedAtEpochMs = w.completedAtEpochMs
-                ?: System.currentTimeMillis(),
-            exercises = w.exercises.map { ex ->
-                CompletedExercise(
-                    name = ex.name,
-                    sets = ex.sets.mapIndexedNotNull { setIndex, set ->
+        val completedExercises =
+            w.exercises.mapNotNull { ex ->
+                val completedSets =
+                    ex.sets.mapIndexedNotNull { setIndex, set ->
                         val reps = set.completedReps
                         val weight = set.completedWeight
                         val rest = set.actualRestSeconds ?: 0
@@ -114,18 +105,35 @@ class ActiveWorkoutViewModel : ViewModel() {
                             null
                         }
                     }
-                )
+
+                if (completedSets.isEmpty()) null
+                else CompletedExercise(name = ex.name, sets = completedSets)
             }
+
+        return CompletedWorkout(
+            workoutId = w.workoutId,
+            name = w.name,
+            startedAtEpochMs = w.startedAtEpochMs,
+            completedAtEpochMs = w.completedAtEpochMs
+                ?: System.currentTimeMillis(),
+            exercises = completedExercises
         )
     }
     fun sendWorkoutAndReset(context: Context) {
         if (waitingForAck) return
-        val w = workout ?: return  // 🔒 hard guard
+        workout ?: return  // hard guard
         appContext = context.applicationContext
 
         val completed = toCompletedWorkout()
+        if (completed.exercises.isEmpty()) {
+            // No completed sets to sync; just clear local finished workout.
+            workout = null
+            workoutLoaded = false
+            workoutUiState = WorkoutUiState.EXERCISE
+            _hasWorkout.value = false
+            return
+        }
         waitingForAck = true
-        Log.d("WorkoutVM", "sendWorkoutAndReset: waitingForAck=true")
         pendingWorkout = completed
         PendingWorkoutStore.save(context, completed)
         sendCompleted(context, completed)
@@ -141,6 +149,7 @@ class ActiveWorkoutViewModel : ViewModel() {
         waitingForAck = true
         sendCompleted(context, pending)
         startRetryLoop(context)
+        startAckWatchdog(context)
     }
 
     fun endWorkoutEarly() {
@@ -320,7 +329,6 @@ class ActiveWorkoutViewModel : ViewModel() {
     }
 
     private fun resetAfterAck() {
-        Log.d("WorkoutVM", "resetAfterAck")
         workout = null
         workoutLoaded = false
         workoutUiState = WorkoutUiState.EXERCISE
@@ -337,10 +345,6 @@ class ActiveWorkoutViewModel : ViewModel() {
         val hasPending =
             appContext?.let { PendingWorkoutStore.hasPending(it) } ?: false
         if (waitingForAck || hasPending || pendingWorkout != null) {
-            Log.d(
-                "WorkoutVM",
-                "handleAck: waiting=$waitingForAck hasPending=$hasPending pending=${pendingWorkout != null}"
-            )
             resetAfterAck()
         }
     }
@@ -370,7 +374,6 @@ class ActiveWorkoutViewModel : ViewModel() {
             while (waitingForAck && checks < 50) { // ~10s @ 200ms
                 delay(200)
                 if (!PendingWorkoutStore.hasPending(appCtx)) {
-                    Log.d("WorkoutVM", "ackWatchdog: pending cleared")
                     handleAck()
                     break
                 }

@@ -15,6 +15,7 @@ import com.example.gymtrackerphone.sync.dto.CompletedWorkoutDto
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
+import com.google.android.gms.wearable.PutDataMapRequest
 
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
@@ -84,7 +85,28 @@ class WorkoutResultReceiverService : WearableListenerService() {
                             WorkoutTransfer.COMPLETED_WORKOUT_ACK,
                             ByteArray(0)
                         )
+                        .addOnFailureListener {
+                            Log.e("WorkoutReceiver", "❌ ACK message failed", it)
+                        }
+
+                    val ackRequest =
+                        PutDataMapRequest.create(WorkoutTransfer.COMPLETED_WORKOUT_ACK)
+                            .apply {
+                                dataMap.putLong(WorkoutTransfer.KEY_UPDATED_AT, System.currentTimeMillis())
+                                dataMap.putString("node_id", node.id)
+                            }
+                            .asPutDataRequest()
+                            .setUrgent()
+
+                    Wearable.getDataClient(this)
+                        .putDataItem(ackRequest)
+                        .addOnFailureListener {
+                            Log.e("WorkoutReceiver", "❌ ACK data item failed", it)
+                        }
                 }
+            }
+            .addOnFailureListener {
+                Log.e("WorkoutReceiver", "❌ Failed to fetch nodes for ACK", it)
             }
     }
 

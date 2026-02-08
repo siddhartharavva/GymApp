@@ -80,9 +80,7 @@ fun MyWorkoutsScreen(
                 Spacer(Modifier.height(8.dp))
 
                 LazyColumn {
-                    items(workouts) { workout ->
-                        val context = LocalContext.current
-
+                    items(workouts, key = { it.id }) { workout ->
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
                                 if (value == SwipeToDismissBoxValue.EndToStart) {

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     id("kotlin-kapt")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 android {
@@ -13,7 +14,7 @@ android {
         applicationId = "com.example.gymtracker"
         minSdk = 30
         targetSdk = 34
-        versionCode = 1
+        versionCode = 20001
         versionName = "1.0"
         vectorDrawables {
             useSupportLibrary = true
@@ -23,7 +24,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -47,6 +49,11 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+
+    lint {
+        checkReleaseBuilds = true
+        abortOnError = true
     }
 }
 
@@ -78,4 +85,10 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
+}
+
+ktlint {
+    android.set(true)
+    outputColorName.set("RED")
+    ignoreFailures.set(false)
 }

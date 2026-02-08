@@ -70,8 +70,10 @@ fun PastWorkoutsScreen(
         }
 
     val filteredWorkouts =
-        workouts.filter { workout ->
-            selectedFilter == null || workout.name == selectedFilter
+        remember(workouts, selectedFilter) {
+            workouts.filter { workout ->
+                selectedFilter == null || workout.name == selectedFilter
+            }
         }
 
     Box(

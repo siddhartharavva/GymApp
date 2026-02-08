@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     id("kotlin-kapt")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("org.jlleitschuh.gradle.ktlint")
 
 }
 
@@ -10,13 +11,13 @@ plugins {
 
 android {
     namespace = "com.example.gymtrackerphone"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId ="com.example.gymtracker"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
+        targetSdk = 35
+        versionCode = 10001
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -27,7 +28,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -51,6 +53,11 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+
+    lint {
+        checkReleaseBuilds = true
+        abortOnError = true
     }
 }
 
@@ -79,4 +86,10 @@ dependencies {
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+}
+
+ktlint {
+    android.set(true)
+    outputColorName.set("RED")
+    ignoreFailures.set(false)
 }

@@ -6,6 +6,8 @@ import com.example.gymtrackerwatch.sync.dto.WorkoutTemplateDto
 import com.example.gymtrackerwatch.sync.store.IncomingWorkoutStore
 import com.example.gymtrackerwatch.sync.store.WorkoutAckStore
 import com.example.gymtrackerwatch.sync.store.PendingWorkoutStore
+import com.example.gymtrackerwatch.notifications.WatchNotificationHelper
+import com.example.gymtrackerwatch.util.AppVisibility
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -62,6 +64,13 @@ class WorkoutReceiverService : WearableListenerService() {
                     Json.decodeFromString<WorkoutTemplateDto>(json)
 
                 IncomingWorkoutStore.store(template)
+
+                if (!AppVisibility.isVisible) {
+                    WatchNotificationHelper.showIncomingWorkout(
+                        applicationContext,
+                        template.name
+                    )
+                }
 
                 Log.d(TAG, "✅ Workout stored successfully")
             } catch (e: SerializationException) {

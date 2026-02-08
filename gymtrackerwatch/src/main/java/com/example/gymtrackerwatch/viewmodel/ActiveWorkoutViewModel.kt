@@ -1,6 +1,7 @@
 package com.example.gymtrackerwatch.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -26,6 +27,7 @@ class ActiveWorkoutViewModel : ViewModel() {
     private var rotaryAccum = 0f
     private var pendingWorkout: CompletedWorkout? = null
     private var retryJob: Job? = null
+    private var ackWatchJob: Job? = null
     private var appContext: Context? = null
     val isWaitingForAck: Boolean
         get() = waitingForAck
@@ -92,13 +94,12 @@ class ActiveWorkoutViewModel : ViewModel() {
                     sets = ex.sets.mapIndexedNotNull { setIndex, set ->
                         val reps = set.completedReps
                         val weight = set.completedWeight
-                        val rest = set.actualRestSeconds
+                        val rest = set.actualRestSeconds ?: 0
                         val completedAt = set.completedAtEpochMs
 
                         if (
                             reps != null &&
                             weight != null &&
-                            rest != null &&
                             completedAt != null
                         ) {
                             CompletedSet(
@@ -124,10 +125,12 @@ class ActiveWorkoutViewModel : ViewModel() {
 
         val completed = toCompletedWorkout()
         waitingForAck = true
+        Log.d("WorkoutVM", "sendWorkoutAndReset: waitingForAck=true")
         pendingWorkout = completed
         PendingWorkoutStore.save(context, completed)
         sendCompleted(context, completed)
         startRetryLoop(context)
+        startAckWatchdog(context)
     }
 
     fun tryResendPending(context: Context) {
@@ -317,6 +320,7 @@ class ActiveWorkoutViewModel : ViewModel() {
     }
 
     private fun resetAfterAck() {
+        Log.d("WorkoutVM", "resetAfterAck")
         workout = null
         workoutLoaded = false
         workoutUiState = WorkoutUiState.EXERCISE
@@ -324,6 +328,7 @@ class ActiveWorkoutViewModel : ViewModel() {
         waitingForAck = false
         pendingWorkout = null
         retryJob?.cancel()
+        ackWatchJob?.cancel()
         appContext?.let { PendingWorkoutStore.clear(it) }
         loadWorkout()
     }
@@ -332,6 +337,10 @@ class ActiveWorkoutViewModel : ViewModel() {
         val hasPending =
             appContext?.let { PendingWorkoutStore.hasPending(it) } ?: false
         if (waitingForAck || hasPending || pendingWorkout != null) {
+            Log.d(
+                "WorkoutVM",
+                "handleAck: waiting=$waitingForAck hasPending=$hasPending pending=${pendingWorkout != null}"
+            )
             resetAfterAck()
         }
     }
@@ -349,6 +358,23 @@ class ActiveWorkoutViewModel : ViewModel() {
                 if (!waitingForAck) break
                 pendingWorkout?.let { sendCompleted(context, it) }
                 attempts++
+            }
+        }
+    }
+
+    private fun startAckWatchdog(context: Context) {
+        ackWatchJob?.cancel()
+        val appCtx = context.applicationContext
+        ackWatchJob = viewModelScope.launch {
+            var checks = 0
+            while (waitingForAck && checks < 50) { // ~10s @ 200ms
+                delay(200)
+                if (!PendingWorkoutStore.hasPending(appCtx)) {
+                    Log.d("WorkoutVM", "ackWatchdog: pending cleared")
+                    handleAck()
+                    break
+                }
+                checks++
             }
         }
     }

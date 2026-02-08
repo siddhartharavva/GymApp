@@ -27,6 +27,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+private data class DeleteExerciseRequest(
+    val id: Int,
+    val name: String
+)
+
+private data class DeleteSetRequest(
+    val id: Int,
+    val label: String
+)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WheelPicker(
@@ -145,6 +155,8 @@ fun WorkoutDetailsScreen(
     val workout = workouts.firstOrNull { it.id == workoutId }
 
     var exerciseName by remember { mutableStateOf("") }
+    var exerciseToDelete by remember { mutableStateOf<DeleteExerciseRequest?>(null) }
+    var setToDelete by remember { mutableStateOf<DeleteSetRequest?>(null) }
 
     Scaffold(
         topBar = {
@@ -206,7 +218,12 @@ fun WorkoutDetailsScreen(
                                 )
 
                                 IconButton(
-                                    onClick = { viewModel.deleteExercise(exercise.id) }
+                                    onClick = {
+                                        exerciseToDelete = DeleteExerciseRequest(
+                                            id = exercise.id,
+                                            name = exercise.name
+                                        )
+                                    }
                                 ) {
                                     Icon(Icons.Outlined.Delete, null)
                                 }
@@ -232,7 +249,12 @@ fun WorkoutDetailsScreen(
                                             Text("Set ${index + 1}")
 
                                             IconButton(
-                                                onClick = { viewModel.deleteSet(set.id) },
+                                                onClick = {
+                                                    setToDelete = DeleteSetRequest(
+                                                        id = set.id,
+                                                        label = "Set ${index + 1} • ${exercise.name}"
+                                                    )
+                                                },
                                                 modifier = Modifier
                                                     .size(36.dp) // ⬅️ smaller tap area
                                                     .offset(y = (-2).dp) // ⬅️ nudges it up
@@ -373,5 +395,67 @@ fun WorkoutDetailsScreen(
                 }
             }
         }
+    }
+
+    if (exerciseToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { exerciseToDelete = null },
+            title = { Text("Delete exercise?") },
+            text = {
+                Text(
+                    "This will remove ${exerciseToDelete?.name} and its sets. " +
+                        "Past history for this exercise will no longer match."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val id = exerciseToDelete?.id
+                        if (id != null) {
+                            viewModel.deleteExercise(id)
+                        }
+                        exerciseToDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { exerciseToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (setToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { setToDelete = null },
+            title = { Text("Delete set?") },
+            text = {
+                Text(
+                    "Delete ${setToDelete?.label}? This may change how past " +
+                        "workouts are interpreted."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val id = setToDelete?.id
+                        if (id != null) {
+                            viewModel.deleteSet(id)
+                        }
+                        setToDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { setToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

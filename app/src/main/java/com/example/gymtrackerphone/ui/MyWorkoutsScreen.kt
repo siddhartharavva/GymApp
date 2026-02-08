@@ -39,6 +39,7 @@ fun MyWorkoutsScreen(
     var textInput by remember { mutableStateOf("") }
     var editingWorkoutId by remember { mutableStateOf<Int?>(null) }
     var inputBarHeight by remember { mutableStateOf(0.dp) }
+    var workoutToDelete by remember { mutableStateOf<WorkoutUi?>(null) }
 
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -65,7 +66,6 @@ fun MyWorkoutsScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         Box {
-
             // ---------- LIST ----------
             Column(
                 modifier = Modifier
@@ -161,9 +161,7 @@ fun MyWorkoutsScreen(
                                         }
 
                                         IconButton(
-                                            onClick = {
-                                                viewModel.deleteWorkout(workout.id)
-                                            }
+                                            onClick = { workoutToDelete = workout }
                                         ) {
                                             Icon(Icons.Outlined.Delete, "Delete")
                                         }
@@ -190,22 +188,20 @@ fun MyWorkoutsScreen(
                             if (imeBottomPx > 0) -maxLiftPx else 0f
                     },
                 color = MaterialTheme.colorScheme.background,
-                tonalElevation = 3.dp // optional but looks clean
+                tonalElevation = 3.dp
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-
                     OutlinedTextField(
                         value = textInput,
                         onValueChange = { textInput = it },
                         label = { Text("Workout name") },
                         modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
                     )
 
                     Spacer(Modifier.height(4.dp))
@@ -234,6 +230,37 @@ fun MyWorkoutsScreen(
                     }
                 }
             }
+
+            if (workoutToDelete != null) {
+                AlertDialog(
+                    onDismissRequest = { workoutToDelete = null },
+                    title = { Text("Delete workout?") },
+                    text = {
+                        Text(
+                            "This will remove the workout and its exercises/sets. " +
+                                "Past history for this workout will no longer match."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                val id = workoutToDelete?.id
+                                if (id != null) {
+                                    viewModel.deleteWorkout(id)
+                                }
+                                workoutToDelete = null
+                            }
+                        ) {
+                            Text("Delete")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { workoutToDelete = null }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
+    }
 }

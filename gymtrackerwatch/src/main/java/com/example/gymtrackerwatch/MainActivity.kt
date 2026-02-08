@@ -6,7 +6,11 @@ import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import android.util.Log
+import android.Manifest
+import android.content.pm.PackageManager
 import com.example.gymtrackerwatch.presentation.navigation.WatchNavGraph
 import com.example.gymtrackerwatch.presentation.theme.GymTrackerWatchTheme
 import com.example.gymtrackerwatch.viewmodel.ActiveWorkoutViewModel
@@ -16,6 +20,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            val granted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    1001
+                )
+            }
+        }
 
         setContent {
             GymTrackerWatchTheme {

@@ -258,6 +258,26 @@ fun PastWorkoutsScreen(
                     }
                 }
             }
+        } else {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+                tonalElevation = 3.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = { importLauncher.launch("text/*") }
+                    ) {
+                        Text("Import CSV")
+                    }
+                }
+            }
         }
     }
 }

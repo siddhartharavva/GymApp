@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlin.math.abs
@@ -161,7 +162,11 @@ fun WorkoutDetailsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(workout?.name ?: "Workout")}
+                title = { Text(workout?.name ?: "Workout") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = Color.White
+                )
             )
         }
     ) { paddingValues ->
@@ -365,8 +370,8 @@ fun WorkoutDetailsScreen(
                         }
                     }
                     .imePadding(),
-
-                tonalElevation = 3.dp
+                tonalElevation = 3.dp,
+                color = Color(0xFF050505)
             ) {
                 Column(
                     modifier = Modifier
@@ -377,7 +382,17 @@ fun WorkoutDetailsScreen(
                         value = exerciseName,
                         onValueChange = { exerciseName = it },
                         label = { Text("Exercise name") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = Color(0xFF2A2A2A),
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = Color.White,
+                            unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            containerColor = Color(0xFF111111)
+                        )
                     )
 
                     Spacer(Modifier.height(6.dp))
@@ -388,7 +403,11 @@ fun WorkoutDetailsScreen(
                             if (exerciseName.isBlank()) return@Button
                             viewModel.addExercise(workout.id, exerciseName)
                             exerciseName = ""
-                        }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White
+                        )
                     ) {
                         Text("Add Exercise")
                     }

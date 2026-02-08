@@ -20,6 +20,7 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
+        IncomingWorkoutStore.init(context)
         vm.tryResendPending(context)
     }
 

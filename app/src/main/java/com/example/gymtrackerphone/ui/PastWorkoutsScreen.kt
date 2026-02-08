@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.example.gymtrackerphone.data.model.CompletedSetUi
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModel
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.core.content.FileProvider
 import android.content.Intent
 import java.io.File
@@ -195,7 +196,8 @@ fun PastWorkoutsScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth(),
-                tonalElevation = 3.dp
+                tonalElevation = 3.dp,
+                color = Color(0xFF050505)
             ) {
                 Column(
                     modifier = Modifier
@@ -215,7 +217,9 @@ fun PastWorkoutsScreen(
                             label = { Text("All") },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                selectedLabelColor = Color.White,
+                                containerColor = Color(0xFF111111),
+                                labelColor = Color.White.copy(alpha = 0.8f)
                             )
                         )
 
@@ -226,7 +230,9 @@ fun PastWorkoutsScreen(
                                 label = { Text(name) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color(0xFF111111),
+                                    labelColor = Color.White.copy(alpha = 0.8f)
                                 )
                             )
                         }
@@ -241,7 +247,7 @@ fun PastWorkoutsScreen(
                         TextButton(
                             onClick = { importLauncher.launch("text/*") }
                         ) {
-                            Text("Import CSV")
+                            Text("Import CSV", color = Color.White)
                         }
 
                         TextButton(
@@ -253,7 +259,7 @@ fun PastWorkoutsScreen(
                                 )
                             }
                         ) {
-                            Text("Export CSV")
+                            Text("Export CSV", color = Color.White)
                         }
                     }
                 }
@@ -263,7 +269,8 @@ fun PastWorkoutsScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth(),
-                tonalElevation = 3.dp
+                tonalElevation = 3.dp,
+                color = Color(0xFF050505)
             ) {
                 Row(
                     modifier = Modifier
@@ -274,7 +281,7 @@ fun PastWorkoutsScreen(
                     TextButton(
                         onClick = { importLauncher.launch("text/*") }
                     ) {
-                        Text("Import CSV")
+                        Text("Import CSV", color = Color.White)
                     }
                 }
             }
@@ -375,18 +382,18 @@ private fun SetChip(
     ) {
         Column(
             modifier = Modifier
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "Set $index",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = "${set.reps}x${formatWeight(set.weight)}",
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
         }

@@ -5,6 +5,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import com.example.gymtrackerphone.ui.navigation.HomeTab
 import com.example.gymtrackerphone.data.model.WorkoutUi
@@ -27,10 +29,21 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 56.dp)   // AppBar height
                     .padding(bottom = 80.dp) // Navbar height
             ) {
-                TopAppBar(title = { Text("Gym Tracker") })
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Gym Tracker",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = Color.White
+                    )
+                )
 
                 when (selectedTab) {
                     HomeTab.MyWorkouts ->
@@ -48,14 +61,22 @@ fun HomeScreen(
             NavigationBar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .height(80.dp)
+                    .height(80.dp),
+                containerColor = Color(0xFF050505)
             ) {
                 listOf(HomeTab.MyWorkouts, HomeTab.PastWorkouts).forEach { tab ->
                     NavigationBarItem(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
                         icon = { Icon(tab.icon, contentDescription = tab.label) },
-                        label = { Text(tab.label) }
+                        label = { Text(tab.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = Color.White.copy(alpha = 0.7f),
+                            selectedTextColor = Color.White,
+                            unselectedTextColor = Color.White.copy(alpha = 0.7f),
+                            indicatorColor = Color(0xFF111111)
+                        )
                     )
                 }
             }

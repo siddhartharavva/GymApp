@@ -77,23 +77,6 @@ fun MyWorkoutsScreen(
                         bottom = inputBarHeight + 8.dp
                     )
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "My Workouts",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-
-                    TextButton(
-                        onClick = { importLauncher.launch("text/*") }
-                    ) {
-                        Text("Import CSV")
-                    }
-                }
-
                 Spacer(Modifier.height(8.dp))
 
                 LazyColumn {
@@ -146,7 +129,11 @@ fun MyWorkoutsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(workout.name)
+                                    Text(
+                                        text = workout.name,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = androidx.compose.ui.graphics.Color.White
+                                    )
 
                                     Row {
                                         IconButton(
@@ -195,6 +182,17 @@ fun MyWorkoutsScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { importLauncher.launch("text/*") }
+                        ) {
+                            Text("Import CSV", color = androidx.compose.ui.graphics.Color.White)
+                        }
+                    }
+
                     OutlinedTextField(
                         value = textInput,
                         onValueChange = { textInput = it },

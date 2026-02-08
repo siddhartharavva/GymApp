@@ -91,6 +91,17 @@ interface WorkoutDao {
     @Query("SELECT * FROM completed_workouts ORDER BY completedAtEpochMs DESC")
     fun getCompletedWorkouts(): Flow<List<CompletedWorkoutWithExercises>>
 
+    @Query(
+        "SELECT workoutId FROM completed_workouts " +
+            "WHERE templateWorkoutId = :templateWorkoutId " +
+            "AND startedAtEpochMs = :startedAtEpochMs " +
+            "LIMIT 1"
+    )
+    suspend fun findCompletedWorkoutId(
+        templateWorkoutId: Int,
+        startedAtEpochMs: Long
+    ): Int?
+
     @Transaction
     @Query(
         "SELECT * FROM completed_workouts " +

@@ -71,6 +71,14 @@ class WorkoutRepository(
     suspend fun addCompletedWorkout(dto: CompletedWorkoutDto): Boolean {
         var inserted = false
         db.withTransaction {
+            val existingId = dao.findCompletedWorkoutId(
+                templateWorkoutId = dto.workoutId,
+                startedAtEpochMs = dto.startedAtEpochMs
+            )
+            if (existingId != null) {
+                return@withTransaction
+            }
+
             val completedWorkoutId = dao.insertCompletedWorkout(
                 CompletedWorkoutEntity(
                     templateWorkoutId = dto.workoutId,

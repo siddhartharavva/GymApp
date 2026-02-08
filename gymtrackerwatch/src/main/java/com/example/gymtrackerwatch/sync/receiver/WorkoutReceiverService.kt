@@ -63,7 +63,7 @@ class WorkoutReceiverService : WearableListenerService() {
                 val template =
                     Json.decodeFromString<WorkoutTemplateDto>(json)
 
-                IncomingWorkoutStore.store(template)
+                IncomingWorkoutStore.store(applicationContext, template)
 
                 if (!AppVisibility.isVisible) {
                     WatchNotificationHelper.showIncomingWorkout(

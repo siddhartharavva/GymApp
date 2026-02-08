@@ -19,6 +19,7 @@ data class CompletedExercise(
 @Serializable
 
 data class CompletedSet(
+    val setIndex: Int,
     val reps: Int,
     val weight: Float,
     val actualRestSeconds: Int,

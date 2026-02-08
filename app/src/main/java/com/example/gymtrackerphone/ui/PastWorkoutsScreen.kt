@@ -21,6 +21,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,6 +35,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import com.example.gymtrackerphone.data.model.CompletedSetUi
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
+import android.content.Intent
+import java.io.File
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -44,6 +51,14 @@ fun PastWorkoutsScreen(
 ) {
     val workouts by viewModel.pastWorkouts.collectAsState()
     var selectedFilter by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importCompletedCsv(context, uri)
+        }
+    }
 
     val workoutFilters =
         remember(workouts) {
@@ -113,7 +128,8 @@ fun PastWorkoutsScreen(
                                     Text(
                                         text = workout.name,
                                         style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
                                     )
 
                                     Text(
@@ -146,7 +162,8 @@ fun PastWorkoutsScreen(
                                     Text(
                                         text = ex.name,
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
                                     )
 
                                     val setScroll = rememberScrollState()
@@ -180,33 +197,64 @@ fun PastWorkoutsScreen(
                     .fillMaxWidth(),
                 tonalElevation = 3.dp
             ) {
-                Row(
+                Column(
                     modifier = Modifier
-                        .horizontalScroll(scrollState)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp)
                 ) {
-                    FilterChip(
-                        selected = selectedFilter == null,
-                        onClick = { selectedFilter = null },
-                        label = { Text("All") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    )
-
-                    workoutFilters.forEach { name ->
+                    Row(
+                        modifier = Modifier
+                            .horizontalScroll(scrollState)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         FilterChip(
-                            selected = selectedFilter == name,
-                            onClick = { selectedFilter = name },
-                            label = { Text(name) },
+                            selected = selectedFilter == null,
+                            onClick = { selectedFilter = null },
+                            label = { Text("All") },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                             )
                         )
+
+                        workoutFilters.forEach { name ->
+                            FilterChip(
+                                selected = selectedFilter == name,
+                                onClick = { selectedFilter = name },
+                                label = { Text(name) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { importLauncher.launch("text/*") }
+                        ) {
+                            Text("Import CSV")
+                        }
+
+                        TextButton(
+                            onClick = {
+                                exportCsv(
+                                    context = context,
+                                    workouts = filteredWorkouts,
+                                    filterName = selectedFilter ?: "All"
+                                )
+                            }
+                        ) {
+                            Text("Export CSV")
+                        }
                     }
                 }
             }
@@ -230,6 +278,69 @@ private fun formatWeight(weight: Float): String =
 private fun formatDuration(startedAt: Long, completedAt: Long): String {
     val mins = ((completedAt - startedAt) / 60000L).coerceAtLeast(1)
     return "${mins}m"
+}
+
+private fun exportCsv(
+    context: android.content.Context,
+    workouts: List<com.example.gymtrackerphone.data.model.CompletedWorkoutUi>,
+    filterName: String
+) {
+    if (workouts.isEmpty()) return
+
+    val header =
+        "Workout,Completed At,Duration (min),Exercise,Set,Reps,Weight\n"
+
+    val rows = buildString {
+        append(header)
+        workouts.forEach { workout ->
+            val completedAt = formatDateTime(workout.completedAtEpochMs)
+            val duration = ((workout.completedAtEpochMs - workout.startedAtEpochMs) / 60000L)
+                .coerceAtLeast(1)
+
+            workout.exercises.forEach { ex ->
+                ex.sets.forEachIndexed { index, set ->
+                    append(
+                        "\"${workout.name}\"," +
+                            "\"$completedAt\"," +
+                            "\"$duration\"," +
+                            "\"${ex.name}\"," +
+                            "\"${index + 1}\"," +
+                            "\"${set.reps}\"," +
+                            "\"${formatWeight(set.weight)}\"\n"
+                    )
+                }
+            }
+        }
+    }
+
+    val fileName =
+        "gymtracker_${filterName.lowercase(Locale.getDefault())}_" +
+            "${System.currentTimeMillis()}.csv"
+
+    val file = File(context.cacheDir, fileName)
+    file.writeText(rows)
+
+    val uri = FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.provider",
+        file
+    )
+
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/csv"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    context.startActivity(
+        Intent.createChooser(shareIntent, "Export workouts")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}
+
+private fun formatDateTime(epochMs: Long): String {
+    val formatter = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+    return formatter.format(Date(epochMs))
 }
 
 @Composable

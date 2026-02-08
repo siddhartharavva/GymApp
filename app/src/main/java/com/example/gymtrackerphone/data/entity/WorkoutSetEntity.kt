@@ -20,5 +20,6 @@ data class WorkoutSetEntity(
     val minReps: Int,
     val maxReps: Int?, // null = AMRAP
     val weight: Float,
-    val restSeconds: Int
+    val restSeconds: Int,
+    val orderIndex: Int
 )

@@ -14,7 +14,9 @@ fun mapToTemplate(
 ): WorkoutTemplateDto {
 
     val exerciseMap = exercises.map { ex ->
-        val exSets = sets.filter { it.exerciseId == ex.id }
+        val exSets = sets
+            .filter { it.exerciseId == ex.id }
+            .sortedBy { it.orderIndex }
 
         ExerciseTemplateDto(
             name = ex.name,

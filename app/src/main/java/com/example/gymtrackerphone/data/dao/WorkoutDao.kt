@@ -14,6 +14,9 @@ interface WorkoutDao {
     @Insert
     suspend fun insertWorkout(workout: WorkoutEntity)
 
+    @Insert
+    suspend fun insertWorkoutReturningId(workout: WorkoutEntity): Long
+
     @Query("UPDATE workouts SET name = :name WHERE id = :workoutId")
     suspend fun updateWorkout(workoutId: Int, name: String)
 
@@ -26,12 +29,18 @@ interface WorkoutDao {
     @Query("SELECT * FROM sets WHERE exerciseId = :exerciseId")
     suspend fun getSetsForExercise(exerciseId: Int): List<WorkoutSetEntity>
 
+    @Query("SELECT COALESCE(MAX(orderIndex), -1) + 1 FROM sets WHERE exerciseId = :exerciseId")
+    suspend fun getNextSetOrderIndex(exerciseId: Int): Int
+
     @Query("DELETE FROM workouts WHERE id = :workoutId")
     suspend fun deleteWorkoutById(workoutId: Int)
 
     // ---------- EXERCISES ----------
     @Insert
     suspend fun insertExercise(exercise: ExerciseEntity)
+
+    @Insert
+    suspend fun insertExerciseReturningId(exercise: ExerciseEntity): Long
 
 
     @Transaction
@@ -56,6 +65,13 @@ interface WorkoutDao {
 
     @Query("UPDATE sets SET weight = :weight WHERE id = :setId")
     suspend fun updateWeight(setId: Int, weight: Float)
+
+    @Query("UPDATE sets SET weight = :weight WHERE exerciseId = :exerciseId AND orderIndex = :orderIndex")
+    suspend fun updateWeightForSetOrder(
+        exerciseId: Int,
+        orderIndex: Int,
+        weight: Float
+    )
 
     @Query("UPDATE sets SET restSeconds = :rest WHERE id = :setId")
     suspend fun updateRest(setId: Int, rest: Int)

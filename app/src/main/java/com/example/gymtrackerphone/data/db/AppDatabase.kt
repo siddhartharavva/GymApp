@@ -14,7 +14,7 @@ import com.example.gymtrackerphone.data.entity.*
         CompletedExerciseEntity::class,
         CompletedSetEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

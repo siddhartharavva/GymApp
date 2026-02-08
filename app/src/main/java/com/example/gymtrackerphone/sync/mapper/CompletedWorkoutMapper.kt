@@ -29,7 +29,7 @@ fun CompletedWorkoutDto.toEntities(): CompletedWorkoutWithExercises {
                 actualRestSeconds = setDto.actualRestSeconds,
                 skippedRest = setDto.skippedRest,
                 completedAtEpochMs = setDto.completedAtEpochMs,
-                orderIndex = setIndex
+                orderIndex = setDto.setIndex
             )
         }
 

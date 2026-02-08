@@ -83,7 +83,7 @@ class ActiveWorkoutViewModel : ViewModel() {
             exercises = w.exercises.map { ex ->
                 CompletedExercise(
                     name = ex.name,
-                    sets = ex.sets.mapNotNull { set ->
+                    sets = ex.sets.mapIndexedNotNull { setIndex, set ->
                         val reps = set.completedReps
                         val weight = set.completedWeight
                         val rest = set.actualRestSeconds
@@ -96,6 +96,7 @@ class ActiveWorkoutViewModel : ViewModel() {
                             completedAt != null
                         ) {
                             CompletedSet(
+                                setIndex = setIndex,
                                 reps = reps,
                                 weight = weight,
                                 actualRestSeconds = rest,

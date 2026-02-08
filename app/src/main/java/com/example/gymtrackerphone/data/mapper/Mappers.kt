@@ -16,7 +16,7 @@ fun ExerciseWithSets.toUi(): ExerciseUi =
     ExerciseUi(
         id = exercise.id,
         name = exercise.name,
-        sets = sets.map {
+        sets = sets.sortedBy { it.orderIndex }.map {
             WorkoutSetUi(
                 id = it.id,
                 minReps = it.minReps,

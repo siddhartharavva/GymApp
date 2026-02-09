@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -23,9 +25,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,14 +54,22 @@ import androidx.activity.result.contract.ActivityResultContracts
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PastWorkoutsScreen(
     viewModel: WorkoutViewModel
 ) {
     val workouts by viewModel.pastWorkouts.collectAsState()
     var selectedFilter by remember { mutableStateOf<String?>(null) }
+    var editSet by remember { mutableStateOf<EditSetRequest?>(null) }
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -102,85 +119,154 @@ fun PastWorkoutsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(filteredWorkouts, key = { it.id }) { workout ->
-                    val dateText = formatDateOnly(workout.completedAtEpochMs)
-                    val timeText = formatTimeOnly(workout.completedAtEpochMs)
+                    val dateText =
+                        remember(workout.completedAtEpochMs) {
+                            formatDateOnly(workout.completedAtEpochMs)
+                        }
+                    val timeText =
+                        remember(workout.completedAtEpochMs) {
+                            formatTimeOnly(workout.completedAtEpochMs)
+                        }
                     val durationText =
-                        formatDuration(
+                        remember(
                             workout.startedAtEpochMs,
                             workout.completedAtEpochMs
-                        )
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = workout.name,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                            formatDuration(
+                                workout.startedAtEpochMs,
+                                workout.completedAtEpochMs
+                            )
+                        }
 
-                                    Text(
-                                        text = "$durationText • ${workout.exercises.size} exercises",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                Column(
-                                    horizontalAlignment = Alignment.End
+                    var lastProgress by remember { mutableStateOf(0f) }
+                    var hapticFired by remember { mutableStateOf(false) }
+                    val dismissState =
+                        rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (
+                                    value == SwipeToDismissBoxValue.StartToEnd &&
+                                    lastProgress >= 0.5f
                                 ) {
-                                    Text(
-                                        text = timeText,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(
-                                        text = dateText,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    viewModel.deleteCompletedWorkout(workout.id)
+                                    true
+                                } else {
+                                    false
                                 }
                             }
+                        )
 
-                            workout.exercises.forEach { ex ->
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    // Haptic at halfway swipe
+                    LaunchedEffect(dismissState.progress) {
+                        val progress = dismissState.progress
+                        lastProgress = progress
+                        if (!hapticFired && progress >= 0.5f) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            hapticFired = true
+                        }
+                        if (progress < 0.1f) {
+                            hapticFired = false
+                        }
+                    }
+
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = true,
+                        enableDismissFromEndToStart = false,
+                        backgroundContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Text(
+                                    text = "Delete",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.Top
                                 ) {
-                                    Text(
-                                        text = ex.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
-                                    val setScroll = rememberScrollState()
-                                    Row(
-                                        modifier = Modifier
-                                            .horizontalScroll(setScroll)
-                                            .fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    Column(
+                                        modifier = Modifier.weight(1f)
                                     ) {
-                                        ex.sets.forEachIndexed { index, set ->
-                                            SetChip(
-                                                index = index + 1,
-                                                set = set
-                                            )
+                                        Text(
+                                            text = workout.name,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+
+                                        Text(
+                                            text = "$durationText • ${workout.exercises.size} exercises",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Column(
+                                        horizontalAlignment = Alignment.End
+                                    ) {
+                                        Text(
+                                            text = timeText,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = dateText,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+
+                                workout.exercises.forEach { ex ->
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = ex.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+
+                                        LazyRow(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            itemsIndexed(
+                                                items = ex.sets,
+                                                key = { _, set -> set.id }
+                                            ) { index, set ->
+                                                SetChip(
+                                                    index = index + 1,
+                                                    set = set,
+                                                    onClick = {
+                                                        editSet = EditSetRequest(
+                                                            id = set.id,
+                                                            label = "${workout.name} • ${ex.name} • Set ${index + 1}",
+                                                            reps = set.reps,
+                                                            weight = set.weight
+                                                        )
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -191,32 +277,61 @@ fun PastWorkoutsScreen(
             }
         }
 
-        if (workoutFilters.isNotEmpty()) {
-            val scrollState = rememberScrollState()
+    if (editSet != null) {
+        EditSetDialog(
+            request = editSet!!,
+            onDismiss = { editSet = null },
+            onSave = { reps, weight ->
+                viewModel.updateCompletedSet(
+                    setId = editSet!!.id,
+                    reps = reps,
+                    weight = weight
+                )
+                editSet = null
+            }
+        )
+    }
 
-            Surface(
+
+    if (workoutFilters.isNotEmpty()) {
+        val scrollState = rememberScrollState()
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            tonalElevation = 3.dp,
+            color = Color(0xFF050505)
+        ) {
+            Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
-                tonalElevation = 3.dp,
-                color = Color(0xFF050505)
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp)
             ) {
-                Column(
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp)
+                        .horizontalScroll(scrollState)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .horizontalScroll(scrollState)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    FilterChip(
+                        selected = selectedFilter == null,
+                        onClick = { selectedFilter = null },
+                        label = { Text("All") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color(0xFF111111),
+                            labelColor = Color.White.copy(alpha = 0.8f)
+                        )
+                    )
+
+                    workoutFilters.forEach { name ->
                         FilterChip(
-                            selected = selectedFilter == null,
-                            onClick = { selectedFilter = null },
-                            label = { Text("All") },
+                            selected = selectedFilter == name,
+                            onClick = { selectedFilter = name },
+                            label = { Text(name) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = Color.White,
@@ -224,48 +339,35 @@ fun PastWorkoutsScreen(
                                 labelColor = Color.White.copy(alpha = 0.8f)
                             )
                         )
+                    }
+                }
 
-                        workoutFilters.forEach { name ->
-                            FilterChip(
-                                selected = selectedFilter == name,
-                                onClick = { selectedFilter = name },
-                                label = { Text(name) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = Color(0xFF111111),
-                                    labelColor = Color.White.copy(alpha = 0.8f)
-                                )
-                            )
-                        }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = { importLauncher.launch("text/*") }
+                    ) {
+                        Text("Import CSV", color = Color.White)
                     }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.End
+                    TextButton(
+                        onClick = {
+                            exportCsv(
+                                context = context,
+                                workouts = filteredWorkouts,
+                                filterName = selectedFilter ?: "All"
+                            )
+                        }
                     ) {
-                        TextButton(
-                            onClick = { importLauncher.launch("text/*") }
-                        ) {
-                            Text("Import CSV", color = Color.White)
-                        }
-
-                        TextButton(
-                            onClick = {
-                                exportCsv(
-                                    context = context,
-                                    workouts = filteredWorkouts,
-                                    filterName = selectedFilter ?: "All"
-                                )
-                            }
-                        ) {
-                            Text("Export CSV", color = Color.White)
-                        }
+                        Text("Export CSV", color = Color.White)
                     }
                 }
             }
+        }
         } else {
             Surface(
                 modifier = Modifier
@@ -375,7 +477,8 @@ private fun formatDateTime(epochMs: Long): String {
 @Composable
 private fun SetChip(
     index: Int,
-    set: CompletedSetUi
+    set: CompletedSetUi,
+    onClick: (() -> Unit)? = null
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -384,6 +487,13 @@ private fun SetChip(
     ) {
         Column(
             modifier = Modifier
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable { onClick() }
+                    } else {
+                        Modifier
+                    }
+                )
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -400,4 +510,60 @@ private fun SetChip(
             )
         }
     }
+}
+
+private data class EditSetRequest(
+    val id: Int,
+    val label: String,
+    val reps: Int,
+    val weight: Float
+)
+
+
+@Composable
+private fun EditSetDialog(
+    request: EditSetRequest,
+    onDismiss: () -> Unit,
+    onSave: (Int, Float) -> Unit
+) {
+    var repsText by remember(request) { mutableStateOf(request.reps.toString()) }
+    var weightText by remember(request) { mutableStateOf(request.weight.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Set") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(request.label, style = MaterialTheme.typography.labelMedium)
+
+                OutlinedTextField(
+                    value = repsText,
+                    onValueChange = { repsText = it.filter { ch -> ch.isDigit() } },
+                    label = { Text("Reps") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { weightText = it },
+                    label = { Text("Weight") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val reps = repsText.toIntOrNull() ?: request.reps
+                    val weight = weightText.toFloatOrNull() ?: request.weight
+                    onSave(reps.coerceAtLeast(0), weight.coerceAtLeast(0f))
+                }
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }

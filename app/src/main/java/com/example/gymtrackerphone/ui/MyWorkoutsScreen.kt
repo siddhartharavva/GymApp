@@ -83,7 +83,7 @@ fun MyWorkoutsScreen(
                     items(workouts, key = { it.id }) { workout ->
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                if (value == SwipeToDismissBoxValue.StartToEnd) {
                                     viewModel.sendWorkoutToWatch(
                                         context = context,
                                         workoutId = workout.id
@@ -97,14 +97,14 @@ fun MyWorkoutsScreen(
 
                         SwipeToDismissBox(
                             state = dismissState,
-                            enableDismissFromStartToEnd = false,
-                            enableDismissFromEndToStart = true,
+                            enableDismissFromStartToEnd = true,
+                            enableDismissFromEndToStart = false,
                             backgroundContent = {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(horizontal = 24.dp),
-                                    contentAlignment = Alignment.CenterEnd
+                                    contentAlignment = Alignment.CenterStart
                                 ) {
                                     Text(
                                         "Send to Watch",

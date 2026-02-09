@@ -20,6 +20,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        vm.attachContext(applicationContext)
 
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             val granted = ContextCompat.checkSelfPermission(
@@ -40,6 +41,11 @@ class MainActivity : ComponentActivity() {
                 WatchNavGraph(vm = vm)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        vm.onAppVisible()
     }
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {

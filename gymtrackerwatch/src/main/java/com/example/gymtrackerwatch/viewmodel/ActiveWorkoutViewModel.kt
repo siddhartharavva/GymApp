@@ -1,6 +1,9 @@
 package com.example.gymtrackerwatch.viewmodel
 
 import android.content.Context
+import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,6 +18,11 @@ import com.example.gymtrackerwatch.sync.sender.WorkoutResultSender
 import com.example.gymtrackerwatch.sync.store.IncomingWorkoutStore
 import com.example.gymtrackerwatch.sync.store.WorkoutAckStore
 import com.example.gymtrackerwatch.sync.store.PendingWorkoutStore
+import com.example.gymtrackerwatch.sync.store.ActiveWorkoutStore
+import com.example.gymtrackerwatch.sync.store.ActiveWorkoutState
+import com.example.gymtrackerwatch.util.RestAlarmScheduler
+import com.example.gymtrackerwatch.util.RestHapticStore
+import com.example.gymtrackerwatch.notifications.WatchNotificationHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
@@ -26,8 +34,12 @@ class ActiveWorkoutViewModel : ViewModel() {
     private var retryJob: Job? = null
     private var ackWatchJob: Job? = null
     private var appContext: Context? = null
+    private var restEndElapsedMs: Long = 0L
+    private var started by mutableStateOf(false)
     val isWaitingForAck: Boolean
         get() = waitingForAck
+    val isStarted: Boolean
+        get() = started
 
     enum class WorkoutUiState {
         EXERCISE,
@@ -131,6 +143,13 @@ class ActiveWorkoutViewModel : ViewModel() {
             workoutLoaded = false
             workoutUiState = WorkoutUiState.EXERCISE
             _hasWorkout.value = false
+            started = false
+            restEndElapsedMs = 0L
+            appContext?.let {
+                ActiveWorkoutStore.clear(it)
+                RestAlarmScheduler.cancel(it)
+                RestHapticStore.clear(it)
+            }
             return
         }
         waitingForAck = true
@@ -152,6 +171,16 @@ class ActiveWorkoutViewModel : ViewModel() {
         startAckWatchdog(context)
     }
 
+    fun attachContext(context: Context) {
+        appContext = context.applicationContext
+        restoreFromStore(appContext ?: return)
+    }
+
+    fun markStarted() {
+        started = true
+        persistState()
+    }
+
     fun endWorkoutEarly() {
         val w = workout ?: return
         if (w.completedAtEpochMs != null) return
@@ -161,6 +190,27 @@ class ActiveWorkoutViewModel : ViewModel() {
             completedAtEpochMs = System.currentTimeMillis(),
             pendingSync = true
         )
+        persistState()
+    }
+
+    fun cancelWorkout() {
+        workout = null
+        workoutLoaded = false
+        workoutUiState = WorkoutUiState.EXERCISE
+        _hasWorkout.value = false
+        waitingForAck = false
+        pendingWorkout = null
+        started = false
+        restEndElapsedMs = 0L
+        retryJob?.cancel()
+        ackWatchJob?.cancel()
+        appContext?.let { ctx ->
+            PendingWorkoutStore.clear(ctx)
+            ActiveWorkoutStore.clear(ctx)
+            IncomingWorkoutStore.clear()
+            RestAlarmScheduler.cancel(ctx)
+            RestHapticStore.clear(ctx)
+        }
     }
 
     // ---- CORE STATE ----
@@ -228,6 +278,7 @@ class ActiveWorkoutViewModel : ViewModel() {
         }
 
         workout = w.copy(exercises = updatedExercises)
+        persistState()
     }
 
     // ---- REST ----
@@ -240,29 +291,35 @@ class ActiveWorkoutViewModel : ViewModel() {
     private var restJob: Job? = null
 
     fun startRest() {
-        restRemainingSeconds = currentSet().plannedRestSeconds
-        isRestRunning = true
-
-        restJob?.cancel()
-        restJob = viewModelScope.launch {
-            while (restRemainingSeconds > 0) {
-                delay(1000)
-                restRemainingSeconds--
+        if (!isRestRunning || restEndElapsedMs <= 0L) {
+            val planned = currentSet().plannedRestSeconds
+            restEndElapsedMs = SystemClock.elapsedRealtime() + planned * 1000L
+            restRemainingSeconds = planned
+            isRestRunning = true
+            persistState()
+            appContext?.let {
+                RestAlarmScheduler.schedule(it, restEndElapsedMs, currentRestToken())
             }
-            isRestRunning = false
-            finishRestNormally()
         }
+        syncRestFromClock()
+        startRestJob()
     }
 
     fun skipRest() {
         val elapsed = currentSet().plannedRestSeconds - restRemainingSeconds
         restJob?.cancel()
         isRestRunning = false
+        restEndElapsedMs = 0L
         restRemainingSeconds = 0
+        appContext?.let { RestAlarmScheduler.cancel(it) }
         advanceAfterRest(elapsed, skipped = true)
+        persistState()
     }
 
     private fun finishRestNormally() {
+        appContext?.let { RestAlarmScheduler.cancel(it) }
+        triggerRestHaptic()
+        appContext?.let { WatchNotificationHelper.showRestComplete(it) }
         val elapsed = currentSet().plannedRestSeconds
         advanceAfterRest(elapsed, skipped = false)
     }
@@ -313,7 +370,10 @@ class ActiveWorkoutViewModel : ViewModel() {
             } else {
                 w.copy(exercises = updatedExercises)
             }
+        persistState()
     }
+
+    // haptic handled by RestAlarmReceiver (works even with screen off)
 
 
     // ---- LOADING ----
@@ -326,6 +386,9 @@ class ActiveWorkoutViewModel : ViewModel() {
         workoutLoaded = true
         workoutUiState = WorkoutUiState.EXERCISE
         _hasWorkout.value = true
+        started = false
+        restEndElapsedMs = 0L
+        persistState()
     }
 
     private fun resetAfterAck() {
@@ -335,10 +398,12 @@ class ActiveWorkoutViewModel : ViewModel() {
         _hasWorkout.value = false
         waitingForAck = false
         pendingWorkout = null
+        started = false
+        restEndElapsedMs = 0L
         retryJob?.cancel()
         ackWatchJob?.cancel()
         appContext?.let { PendingWorkoutStore.clear(it) }
-        loadWorkout()
+        appContext?.let { ActiveWorkoutStore.clear(it) }
     }
 
     private fun handleAck() {
@@ -407,5 +472,105 @@ class ActiveWorkoutViewModel : ViewModel() {
 
             else -> return false
         }
+    }
+
+    fun onAppVisible() {
+        syncRestFromClock()
+        startRestJob()
+    }
+
+    private fun remainingRestSeconds(): Int {
+        val end = restEndElapsedMs
+        if (end <= 0L) return 0
+        val now = SystemClock.elapsedRealtime()
+        return ((end - now) / 1000L).toInt().coerceAtLeast(0)
+    }
+
+    private fun syncRestFromClock() {
+        if (restEndElapsedMs <= 0L) return
+        val remaining = remainingRestSeconds()
+        restRemainingSeconds = remaining
+        isRestRunning = remaining > 0
+        if (remaining <= 0) {
+            restEndElapsedMs = 0L
+            if (isRestRunning) {
+                isRestRunning = false
+            }
+            appContext?.let { RestAlarmScheduler.cancel(it) }
+            triggerRestHaptic()
+            finishRestNormally()
+            persistState()
+        }
+    }
+
+    private fun currentRestToken(): String {
+        val w = workout ?: return "rest_unknown"
+        val exIndex = w.currentExerciseIndex
+        val setIndex = currentExercise().currentSetIndex
+        return "${w.workoutId}|$exIndex|$setIndex|rest"
+    }
+
+    private fun triggerRestHaptic() {
+        val ctx = appContext ?: return
+        val token = currentRestToken()
+        if (RestHapticStore.wasFired(ctx, token)) return
+
+        RestHapticStore.markFired(ctx, token)
+        val vibrator = ctx.getSystemService(Vibrator::class.java)
+        vibrator?.vibrate(
+            VibrationEffect.createOneShot(
+                800,
+                VibrationEffect.DEFAULT_AMPLITUDE
+            )
+        )
+    }
+
+    private fun startRestJob() {
+        if (!isRestRunning || restEndElapsedMs <= 0L) return
+        restJob?.cancel()
+        restJob = viewModelScope.launch {
+            while (true) {
+                delay(500)
+                val remaining = remainingRestSeconds()
+                restRemainingSeconds = remaining
+                if (remaining <= 0) break
+            }
+            isRestRunning = false
+            restEndElapsedMs = 0L
+            finishRestNormally()
+            persistState()
+        }
+    }
+
+    private fun persistState() {
+        val ctx = appContext ?: return
+        val w = workout ?: run {
+            ActiveWorkoutStore.clear(ctx)
+            return
+        }
+
+        ActiveWorkoutStore.save(
+            ctx,
+            ActiveWorkoutState(
+                workout = w,
+                uiState = workoutUiState.name,
+                restEndElapsedMs = restEndElapsedMs,
+                started = started
+            )
+        )
+    }
+
+    private fun restoreFromStore(context: Context) {
+        val state = ActiveWorkoutStore.load(context) ?: return
+        workout = state.workout
+        workoutLoaded = true
+        workoutUiState =
+            runCatching { WorkoutUiState.valueOf(state.uiState) }
+                .getOrElse { WorkoutUiState.EXERCISE }
+        started = state.started
+        restEndElapsedMs = state.restEndElapsedMs
+        _hasWorkout.value = false
+        syncRestFromClock()
+        startRestJob()
     }
 }

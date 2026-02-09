@@ -3,12 +3,14 @@ package com.example.gymtrackerphone.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
@@ -22,8 +24,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModel
 import kotlin.math.roundToInt
+import kotlin.math.abs
 
 private data class DeleteExerciseRequest(
     val id: Int,
@@ -42,7 +47,8 @@ fun WheelPicker(
     selectedIndex: Int,
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    itemHeight: Dp = 28.dp
+    itemHeight: Dp = 28.dp,
+    userScrollEnabled: Boolean = true
 ) {
     val listState = rememberLazyListState()
     val flingBehavior = rememberSnapFlingBehavior(listState)
@@ -107,6 +113,7 @@ fun WheelPicker(
     LazyRow(
         state = listState,
         flingBehavior = flingBehavior,
+        userScrollEnabled = userScrollEnabled,
         modifier = modifier
             .fillMaxWidth()
             .height(itemHeight),
@@ -148,6 +155,10 @@ fun WorkoutDetailsScreen(
 
     var bottomBarHeight by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
+    val listState = rememberLazyListState()
+    val isListScrolling = listState.isScrollInProgress
+    val weightValues = remember { (0..200).map { "${it * 2.5f}" } }
+    val restValues = remember { (0..30).map { "${it * 10}s" } }
 
     val workouts by viewModel.workouts.collectAsState()
     val workout = workouts.firstOrNull { it.id == workoutId }
@@ -155,6 +166,7 @@ fun WorkoutDetailsScreen(
     var exerciseName by remember { mutableStateOf("") }
     var exerciseToDelete by remember { mutableStateOf<DeleteExerciseRequest?>(null) }
     var setToDelete by remember { mutableStateOf<DeleteSetRequest?>(null) }
+    var expandedSetId by remember { mutableStateOf<Int?>(null) }
 
     Scaffold(
         topBar = {
@@ -191,6 +203,7 @@ fun WorkoutDetailsScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize(),
+                state = listState,
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
@@ -199,7 +212,7 @@ fun WorkoutDetailsScreen(
                 )
 
             ) {
-                items(workout.exercises) { exercise ->
+                items(workout.exercises, key = { it.id }) { exercise ->
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -232,23 +245,53 @@ fun WorkoutDetailsScreen(
                             }
 
 
-                            exercise.sets.forEachIndexed {index, set ->
+                            exercise.sets.forEachIndexed { index, set ->
+
+                                var localRange by remember(
+                                    set.id,
+                                    set.minReps,
+                                    set.maxReps
+                                ) {
+                                    mutableStateOf(
+                                        set.minReps.toFloat()..set.maxReps.toFloat()
+                                    )
+                                }
+
+                                var allowSlider by remember(set.id) { mutableStateOf(true) }
+
+                                LaunchedEffect(set.minReps, set.maxReps) {
+                                    localRange =
+                                        set.minReps.toFloat()..set.maxReps.toFloat()
+                                }
+
+                                val isExpanded = expandedSetId == set.id
 
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth().
-                                        padding(vertical = 2.dp),
+                                        padding(vertical = 2.dp)
+                                        .animateContentSize(),
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                                     )
                                 ) {
-                                    Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                    ) {
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text("Set ${index + 1}")
+                                            Text(
+                                                "Set ${index + 1}",
+                                                modifier = Modifier
+                                                    .padding(start = 4.dp)
+                                                    .clickable {
+                                                        expandedSetId =
+                                                            if (isExpanded) null else set.id
+                                                    }
+                                            )
 
                                             IconButton(
                                                 onClick = {
@@ -274,66 +317,123 @@ fun WorkoutDetailsScreen(
                                             }*/
                                         }
 
-                                        Text("Reps Range",style = MaterialTheme.typography.labelMedium)
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(28.dp), // ⬅️ key line
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                        RangeSlider(
-                                            value = set.minReps.toFloat()..set.maxReps.toFloat(),
-                                            onValueChange = {
-                                                viewModel.updateRepRange(
-                                                    set.id,
-                                                    it.start.toInt(),
-                                                    it.endInclusive.toInt()
-                                                )
-                                            },
-                                            valueRange = 1f..35f,
-                                            colors = SliderDefaults.colors(
-                                                thumbColor = MaterialTheme.colorScheme.primary,
-                                                activeTrackColor = MaterialTheme.colorScheme.primary,
-                                                inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        )
-                                    }
-
-                                        Box(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                        if (isExpanded) {
                                             Text(
-                                                text = "${set.minReps} – ${set.maxReps} Reps",
+                                                "Reps Range",
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(28.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                RangeSlider(
+                                                    value = localRange,
+                                                    onValueChange = {
+                                                        if (!isListScrolling && allowSlider) {
+                                                            localRange = it
+                                                        }
+                                                    },
+                                                    onValueChangeFinished = {
+                                                        val min =
+                                                            localRange.start.roundToInt()
+                                                                .coerceAtLeast(1)
+                                                        val max =
+                                                            localRange.endInclusive.roundToInt()
+                                                                .coerceAtLeast(min)
+                                                                .coerceAtMost(35)
+                                                        if (min != set.minReps || max != set.maxReps) {
+                                                            viewModel.updateRepRange(set.id, min, max)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.pointerInput(set.id, isListScrolling) {
+                                                        detectDragGestures(
+                                                            onDragStart = { allowSlider = true },
+                                                            onDragEnd = { allowSlider = true },
+                                                            onDragCancel = { allowSlider = true },
+                                                            onDrag = { change, dragAmount ->
+                                                                if (abs(dragAmount.y) > abs(dragAmount.x) && abs(dragAmount.y) > 6f) {
+                                                                    allowSlider = false
+                                                                }
+                                                                change.consume()
+                                                            }
+                                                        )
+                                                    },
+                                                    valueRange = 1f..35f,
+                                                    steps = 33,
+                                                    enabled = !isListScrolling,
+                                                    colors = SliderDefaults.colors(
+                                                        thumbColor = MaterialTheme.colorScheme.primary,
+                                                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                                                        inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                )
+                                            }
+
+                                            Box(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "${localRange.start.roundToInt()} – " +
+                                                        "${localRange.endInclusive.roundToInt()} Reps",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+
+                                            Text(
+                                                "Weight",
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                            WheelPicker(
+                                                values = weightValues,
+                                                selectedIndex = (set.weight / 2.5f).roundToInt(),
+                                                onValueChange = { index ->
+                                                    val newWeight = index * 2.5f
+                                                    if (newWeight != set.weight) {
+                                                        viewModel.updateWeight(set.id, newWeight)
+                                                    }
+                                                },
+                                                userScrollEnabled = !isListScrolling
+                                            )
+
+                                            Text(
+                                                "Rest",
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                            WheelPicker(
+                                                values = restValues,
+                                                selectedIndex = (set.restSeconds / 10),
+                                                onValueChange = { index ->
+                                                    val newRest = index * 10
+                                                    if (newRest != set.restSeconds) {
+                                                        viewModel.updateRest(set.id, newRest)
+                                                    }
+                                                },
+                                                userScrollEnabled = !isListScrolling
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "Reps ${set.minReps} – ${set.maxReps}",
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.primary
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                                            )
+                                            Text(
+                                                text = "Weight ${set.weight} kg",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                                            )
+                                            Text(
+                                                text = "Rest ${set.restSeconds}s",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 4.dp)
                                             )
                                         }
-
-                                        Text("Weight",    style = MaterialTheme.typography.labelMedium)
-                                        WheelPicker(
-                                            values = (0..200).map { "${it * 2.5f}" },
-                                            selectedIndex = (set.weight / 2.5f).roundToInt(),
-                                            onValueChange = { index ->
-                                                val newWeight = index * 2.5f
-                                                if (newWeight != set.weight) {
-                                                    viewModel.updateWeight(set.id, newWeight)
-                                                }
-                                            }
-                                        )
-
-
-                                        Text("Rest",style = MaterialTheme.typography.labelMedium)
-                                        WheelPicker(
-                                            values = (0..30).map { "${it * 10}s" },
-                                            selectedIndex = (set.restSeconds / 10),
-                                            onValueChange = { index ->
-                                                val newRest = index * 10
-                                                if (newRest != set.restSeconds) {
-                                                    viewModel.updateRest(set.id, newRest)
-                                                }
-                                            }
-                                        )
                                     }
                                 }
                             }

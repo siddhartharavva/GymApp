@@ -1,6 +1,8 @@
 package com.example.gymtrackerwatch.domain.model
 
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class ActiveWorkout(
     val workoutId: Int,
     val name: String,

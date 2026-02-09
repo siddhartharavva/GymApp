@@ -49,11 +49,26 @@ fun IncomingWorkoutScreen(
                 onClick = onStart,
                 modifier = Modifier
                     .fillMaxWidth(0.75f)   // pill width
-                    .height(56.dp),        // pill height
+                    .height(44.dp),        // pill height
                 shape = MaterialTheme.shapes.large
             ) {
                 Text(
                     text = "START",
+                    style = MaterialTheme.typography.button
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Button(
+                onClick = { vm.cancelWorkout() },
+                modifier = Modifier
+                    .fillMaxWidth(0.75f)
+                    .height(44.dp),
+                shape = MaterialTheme.shapes.large
+            ) {
+                Text(
+                    text = "CANCEL WORKOUT",
                     style = MaterialTheme.typography.button
                 )
             }

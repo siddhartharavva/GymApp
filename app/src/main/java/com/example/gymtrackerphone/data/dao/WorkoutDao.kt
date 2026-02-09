@@ -87,9 +87,15 @@ interface WorkoutDao {
     @Insert
     suspend fun insertCompletedSets(sets: List<CompletedSetEntity>)
 
+    @Query("UPDATE completed_sets SET reps = :reps, weight = :weight WHERE id = :setId")
+    suspend fun updateCompletedSet(setId: Int, reps: Int, weight: Float)
+
     @Transaction
     @Query("SELECT * FROM completed_workouts ORDER BY completedAtEpochMs DESC")
     fun getCompletedWorkouts(): Flow<List<CompletedWorkoutWithExercises>>
+
+    @Query("DELETE FROM completed_workouts WHERE workoutId = :workoutId")
+    suspend fun deleteCompletedWorkoutById(workoutId: Int)
 
     @Query(
         "SELECT workoutId FROM completed_workouts " +

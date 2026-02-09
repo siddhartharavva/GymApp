@@ -15,6 +15,7 @@ data class CompletedExerciseUi(
 )
 
 data class CompletedSetUi(
+    val id: Int,
     val reps: Int,
     val weight: Float,
     val actualRestSeconds: Int,

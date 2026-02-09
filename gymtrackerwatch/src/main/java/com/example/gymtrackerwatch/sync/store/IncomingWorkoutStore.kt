@@ -51,15 +51,18 @@ object IncomingWorkoutStore {
         }
 
         val w = workout
+        clear()
+
+        return w
+    }
+
+    fun clear() {
         workout = null
         _hasWorkout.value = false
-
         appContext
             ?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             ?.edit()
             ?.remove(KEY_JSON)
             ?.apply()
-
-        return w
     }
 }

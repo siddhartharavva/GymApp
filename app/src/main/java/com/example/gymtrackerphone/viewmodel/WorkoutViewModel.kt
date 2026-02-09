@@ -151,6 +151,14 @@ class WorkoutViewModel(
         repository.updateRest(setId, rest)
     }
 
+    fun updateCompletedSet(setId: Int, reps: Int, weight: Float) = launch {
+        repository.updateCompletedSet(setId, reps, weight)
+    }
+
+    fun deleteCompletedWorkout(workoutId: Int) = launch {
+        repository.deleteCompletedWorkout(workoutId)
+    }
+
     fun updateWorkout(workoutId: Int, name: String) = launch {
         repository.updateWorkout(workoutId, name)
     }

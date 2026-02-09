@@ -16,7 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 @Composable
 fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     val navController = rememberNavController()
-    val hasWorkout by vm.hasWorkout.collectAsState()
+    val hasIncoming by IncomingWorkoutStore.hasWorkout.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -25,11 +25,23 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     }
 
     // idle → incoming
-    LaunchedEffect(hasWorkout) {
-        if (hasWorkout) {
+    LaunchedEffect(hasIncoming, vm.workout, vm.isStarted) {
+        if (hasIncoming || (vm.workout != null && !vm.isStarted)) {
             if (navController.currentDestination?.route != "incoming") {
                 navController.navigate("incoming") {
                     popUpTo("idle") { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    // active workout → workout screen
+    LaunchedEffect(vm.workout, vm.isStarted) {
+        if (vm.workout != null && vm.isStarted) {
+            if (navController.currentDestination?.route != "workout") {
+                navController.navigate("workout") {
+                    popUpTo(navController.graph.id) { inclusive = true }
                     launchSingleTop = true
                 }
             }
@@ -70,6 +82,7 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
 
         composable("incoming") {
             IncomingWorkoutScreen(vm) {
+                vm.markStarted()
                 navController.navigate("workout") {
                     popUpTo("incoming") { inclusive = true }
                 }

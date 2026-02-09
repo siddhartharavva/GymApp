@@ -1,5 +1,8 @@
 package com.example.gymtrackerwatch.domain.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ActiveSet(
     val targetMinReps: Int,
     val targetMaxReps: Int,

@@ -179,6 +179,14 @@ class WorkoutRepository(
         dao.updateRest(setId, rest)
     }
 
+    suspend fun updateCompletedSet(setId: Int, reps: Int, weight: Float) {
+        dao.updateCompletedSet(setId, reps, weight)
+    }
+
+    suspend fun deleteCompletedWorkout(workoutId: Int) {
+        dao.deleteCompletedWorkoutById(workoutId)
+    }
+
     suspend fun importTemplateWorkouts(rows: List<TemplateImportRow>) {
         if (rows.isEmpty()) return
 

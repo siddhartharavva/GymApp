@@ -32,7 +32,19 @@ fun WorkoutFlowScreen(vm: ActiveWorkoutViewModel) {
     var showEndConfirm by remember { mutableStateOf(false) }
 
     BackHandler(enabled = vm.workoutUiState != ActiveWorkoutViewModel.WorkoutUiState.COMPLETE) {
-        showEndConfirm = true
+        when (vm.workoutUiState) {
+            ActiveWorkoutViewModel.WorkoutUiState.CONFIRM_WEIGHT ->
+                vm.goToConfirmReps()
+
+            ActiveWorkoutViewModel.WorkoutUiState.CONFIRM_REPS ->
+                vm.goToExercise()
+
+            ActiveWorkoutViewModel.WorkoutUiState.EXERCISE,
+            ActiveWorkoutViewModel.WorkoutUiState.REST ->
+                showEndConfirm = true
+
+            ActiveWorkoutViewModel.WorkoutUiState.COMPLETE -> Unit
+        }
     }
 
     when (vm.workoutUiState) {
@@ -77,6 +89,18 @@ fun WorkoutFlowScreen(vm: ActiveWorkoutViewModel) {
                         .height(44.dp)
                 ) {
                     Text("Continue")
+                }
+
+                Button(
+                    onClick = {
+                        showEndConfirm = false
+                        vm.cancelWorkout()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth(0.75f)
+                        .height(44.dp)
+                ) {
+                    Text("Cancel Workout")
                 }
 
                 Button(

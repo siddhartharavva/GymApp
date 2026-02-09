@@ -46,6 +46,7 @@ fun CompletedExerciseWithSets.toUi(): CompletedExerciseUi =
             .sortedBy { it.orderIndex }
             .map {
                 CompletedSetUi(
+                    id = it.id,
                     reps = it.reps,
                     weight = it.weight,
                     actualRestSeconds = it.actualRestSeconds,

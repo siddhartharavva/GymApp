@@ -47,6 +47,9 @@ class WorkoutRepository(
     suspend fun getWorkoutById(workoutId: Int): WorkoutEntity =
         dao.getWorkoutById(workoutId)
 
+    suspend fun getWorkoutIdsByName(workoutName: String): List<Int> =
+        dao.getWorkoutIdsByName(workoutName)
+
     suspend fun getExercisesForWorkout(workoutId: Int): List<ExerciseEntity> =
         dao.getExercisesForWorkout(workoutId)
 

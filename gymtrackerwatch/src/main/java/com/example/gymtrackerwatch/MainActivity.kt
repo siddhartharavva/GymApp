@@ -9,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import android.util.Log
 import android.Manifest
 import android.content.pm.PackageManager
 import com.example.gymtrackerwatch.presentation.navigation.WatchNavGraph
@@ -74,7 +73,6 @@ class MainActivity : ComponentActivity() {
                 ev.isFromSource(InputDevice.SOURCE_ROTARY_ENCODER)
         if (isRotary) {
             val delta = -ev.getAxisValue(MotionEvent.AXIS_SCROLL)
-            Log.d("RotaryMain", "delta=$delta state=${vm.workoutUiState}")
             if (vm.handleRotaryDelta(delta)) {
                 return true
             }

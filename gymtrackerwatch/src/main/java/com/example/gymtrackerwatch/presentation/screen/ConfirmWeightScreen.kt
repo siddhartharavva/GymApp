@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import android.util.Log
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
@@ -63,11 +62,9 @@ fun ConfirmWeightScreen(
             val delta = -event.getAxisValue(MotionEvent.AXIS_SCROLL)
             rotaryAccum += delta
             val steps = (rotaryAccum / rotaryStepPx).toInt()
-            Log.d("RotaryWeight", "delta=$delta accum=$rotaryAccum steps=$steps")
             if (steps != 0) {
                 rotaryAccum -= steps * rotaryStepPx
                 vm.updatePendingWeight(vm.pendingWeight + (steps * step))
-                Log.d("RotaryWeight", "weight=${vm.pendingWeight}")
             }
             true
         }
@@ -132,8 +129,7 @@ fun ConfirmWeightScreen(
 
                 Button(
                     onClick = {
-                        vm.confirmSet(vm.pendingReps, weight)
-                        vm.goToRest() // 🔥 THIS is the missing piece
+                        vm.confirmCurrentSet()
                     },
                     modifier = Modifier
                         .fillMaxWidth(0.7f)

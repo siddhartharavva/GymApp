@@ -52,11 +52,25 @@ class WorkoutViewModel(
     suspend fun buildWorkoutTemplate(workoutId: Int): WorkoutTemplateDto {
         val workout = repository.getWorkoutById(workoutId)
         val exercises = repository.getExercisesForWorkout(workoutId)
-        val recentCompleted =
-            repository.getRecentCompletedWorkoutsByName(
-                workoutName = workout.name,
-                limit = 2
+        val recentCompletedByTemplateId =
+            repository.getRecentCompletedWorkouts(
+                templateWorkoutId = workoutId,
+                limit = 1
             )
+        val recentCompleted =
+            if (recentCompletedByTemplateId.isNotEmpty()) {
+                recentCompletedByTemplateId
+            } else {
+                val sameNameTemplateIds = repository.getWorkoutIdsByName(workout.name)
+                if (sameNameTemplateIds.size == 1) {
+                    repository.getRecentCompletedWorkoutsByName(
+                        workoutName = workout.name,
+                        limit = 1
+                    )
+                } else {
+                    emptyList()
+                }
+            }
 
         val historyByExerciseName =
             mutableMapOf<String, MutableList<ExerciseHistoryDto>>()
@@ -117,9 +131,11 @@ class WorkoutViewModel(
                         )
                     },
                     history =
-                        historyByExerciseName[
-                            exercise.name.trim().lowercase(Locale.getDefault())
-                        ] ?: historyByExerciseIndex[index] ?: emptyList()
+                        historyByExerciseIndex[index]
+                            ?: historyByExerciseName[
+                                exercise.name.trim().lowercase(Locale.getDefault())
+                            ]
+                            ?: emptyList()
                 )
             }
         )
@@ -255,9 +271,17 @@ class WorkoutViewModel(
                             )
                         }
 
+                val matchingTemplateIds = repository.getWorkoutIdsByName(workoutName)
+                val templateWorkoutId =
+                    if (matchingTemplateIds.size == 1) {
+                        matchingTemplateIds.first()
+                    } else {
+                        -1
+                    }
+
                 val dto =
                     CompletedWorkoutDto(
-                        workoutId = -1,
+                        workoutId = templateWorkoutId,
                         name = workoutName,
                         startedAtEpochMs = startedAtEpoch,
                         completedAtEpochMs = completedAtEpoch,

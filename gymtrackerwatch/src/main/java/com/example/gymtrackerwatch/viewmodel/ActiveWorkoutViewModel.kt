@@ -27,6 +27,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 class ActiveWorkoutViewModel : ViewModel() {
+    data class UpcomingSetPreview(
+        val exerciseName: String,
+        val setNumber: Int,
+        val totalSets: Int,
+        val minReps: Int,
+        val maxReps: Int,
+        val weight: Float
+    )
+
     private var waitingForAck by mutableStateOf(false)
     private var rotaryAccum = 0f
     private var pendingWorkout: CompletedWorkout? = null
@@ -35,6 +44,8 @@ class ActiveWorkoutViewModel : ViewModel() {
     private var appContext: Context? = null
     private var restEndElapsedMs: Long = 0L
     private var started by mutableStateOf(false)
+    private var lastUiActionElapsedMs: Long = 0L
+    private val uiActionDebounceMs = 350L
     val isWaitingForAck: Boolean
         get() = waitingForAck
     val isStarted: Boolean
@@ -53,19 +64,37 @@ class ActiveWorkoutViewModel : ViewModel() {
 
     fun goToExercise() {
         workoutUiState = WorkoutUiState.EXERCISE
+        persistState()
     }
 
     fun goToConfirmReps() {
+        if (workoutUiState != WorkoutUiState.EXERCISE) return
+        if (!consumeUiAction()) return
         initPendingForCurrentSet()
         workoutUiState = WorkoutUiState.CONFIRM_REPS
+        persistState()
     }
 
     fun goToConfirmWeight() {
+        if (workoutUiState != WorkoutUiState.CONFIRM_REPS) return
+        if (!consumeUiAction()) return
         workoutUiState = WorkoutUiState.CONFIRM_WEIGHT
+        persistState()
     }
 
     fun goToRest() {
+        if (workoutUiState != WorkoutUiState.CONFIRM_WEIGHT) return
+        if (!consumeUiAction()) return
         workoutUiState = WorkoutUiState.REST
+        persistState()
+    }
+
+    fun confirmCurrentSet() {
+        if (workoutUiState != WorkoutUiState.CONFIRM_WEIGHT) return
+        if (!consumeUiAction()) return
+        confirmSet(pendingReps, pendingWeight)
+        workoutUiState = WorkoutUiState.REST
+        persistState()
     }
 
     var pendingReps by mutableIntStateOf(0)
@@ -176,6 +205,7 @@ class ActiveWorkoutViewModel : ViewModel() {
     }
 
     fun markStarted() {
+        if (!consumeUiAction()) return
         started = true
         persistState()
     }
@@ -252,6 +282,35 @@ class ActiveWorkoutViewModel : ViewModel() {
 
     fun currentSet(): ActiveSet =
         currentExercise().sets[currentExercise().currentSetIndex]
+
+    fun upcomingSetPreview(): UpcomingSetPreview? {
+        val w = workout ?: return null
+        val exerciseIndex = w.currentExerciseIndex
+        val setIndex = currentExercise().currentSetIndex
+
+        var nextExerciseIndex = exerciseIndex
+        var nextSetIndex = setIndex + 1
+
+        if (nextSetIndex >= currentExercise().sets.size) {
+            nextExerciseIndex += 1
+            nextSetIndex = 0
+        }
+
+        if (nextExerciseIndex >= w.exercises.size) {
+            return null
+        }
+
+        val nextExercise = w.exercises[nextExerciseIndex]
+        val nextSet = nextExercise.sets[nextSetIndex]
+        return UpcomingSetPreview(
+            exerciseName = nextExercise.name,
+            setNumber = nextSetIndex + 1,
+            totalSets = nextExercise.sets.size,
+            minReps = nextSet.targetMinReps,
+            maxReps = nextSet.targetMaxReps,
+            weight = nextSet.targetWeight
+        )
+    }
 
     // ---- WORKFLOW ----
     fun confirmSet(reps: Int, weight: Float) {
@@ -491,6 +550,15 @@ class ActiveWorkoutViewModel : ViewModel() {
 
     fun onAppHidden() {
         restJob?.cancel()
+    }
+
+    private fun consumeUiAction(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastUiActionElapsedMs < uiActionDebounceMs) {
+            return false
+        }
+        lastUiActionElapsedMs = now
+        return true
     }
 
     private fun remainingRestSeconds(): Int {

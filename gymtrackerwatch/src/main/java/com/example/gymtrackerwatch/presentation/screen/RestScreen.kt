@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.*
+import com.example.gymtrackerwatch.presentation.util.formatWeight
 import com.example.gymtrackerwatch.viewmodel.ActiveWorkoutViewModel
 
 @Composable
@@ -14,21 +15,11 @@ fun RestScreen(
     vm: ActiveWorkoutViewModel
 ) {
     val restSeconds = vm.restRemainingSeconds
+    val nextPreview = vm.upcomingSetPreview()
 
     // 🔥 Start rest ONCE when screen appears
     LaunchedEffect(Unit) {
         vm.startRest()
-    }
-
-    // 🔔 Auto-advance when rest finishes
-    LaunchedEffect(restSeconds) {
-        if (restSeconds == 0 && vm.isRestRunning.not()) {
-            if (vm.isWorkoutCompleted) {
-                // do nothing, global navigation will move to complete
-            } else {
-                vm.goToExercise()
-            }
-        }
     }
 
     Scaffold(
@@ -50,12 +41,26 @@ fun RestScreen(
                     style = MaterialTheme.typography.display1
                 )
 
+                nextPreview?.let { next ->
+                    val repsText =
+                        if (next.minReps == next.maxReps) {
+                            "${next.maxReps} reps"
+                        } else {
+                            "${next.minReps}-${next.maxReps} reps"
+                        }
+                    Text(
+                        text = "Next: ${next.exerciseName}",
+                        style = MaterialTheme.typography.caption1
+                    )
+                    Text(
+                        text = "Set ${next.setNumber}/${next.totalSets} • $repsText • ${formatWeight(next.weight)}kg",
+                        style = MaterialTheme.typography.caption2
+                    )
+                }
+
                 Button(
                     onClick = {
                         vm.skipRest()
-                        if (!vm.isWorkoutCompleted) {
-                            vm.goToExercise()
-                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth(0.75f)

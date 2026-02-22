@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,7 @@ fun PastWorkoutsScreen(
     val workouts by viewModel.pastWorkouts.collectAsState()
     var selectedFilter by remember { mutableStateOf<String?>(null) }
     var editSet by remember { mutableStateOf<EditSetRequest?>(null) }
+    var expandedWorkoutId by rememberSaveable { mutableStateOf<Int?>(null) }
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val importLauncher = rememberLauncherForActivityResult(
@@ -137,6 +139,11 @@ fun PastWorkoutsScreen(
                                 workout.completedAtEpochMs
                             )
                         }
+                    val totalSets =
+                        remember(workout.id) {
+                            workout.exercises.sumOf { exercise -> exercise.sets.size }
+                        }
+                    val isExpanded = expandedWorkoutId == workout.id
 
                     var lastProgress by remember { mutableStateOf(0f) }
                     var hapticFired by remember { mutableStateOf(false) }
@@ -235,37 +242,59 @@ fun PastWorkoutsScreen(
                                     }
                                 }
 
-                                workout.exercises.forEach { ex ->
-                                    Column(
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "$totalSets sets",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            expandedWorkoutId =
+                                                if (isExpanded) null else workout.id
+                                        }
                                     ) {
-                                        Text(
-                                            text = ex.name,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
+                                        Text(if (isExpanded) "Hide Sets" else "Show Sets")
+                                    }
+                                }
 
-                                        LazyRow(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                if (isExpanded) {
+                                    workout.exercises.forEach { ex ->
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            itemsIndexed(
-                                                items = ex.sets,
-                                                key = { _, set -> set.id }
-                                            ) { index, set ->
-                                                SetChip(
-                                                    index = index + 1,
-                                                    set = set,
-                                                    onClick = {
-                                                        editSet = EditSetRequest(
-                                                            id = set.id,
-                                                            label = "${workout.name} • ${ex.name} • Set ${index + 1}",
-                                                            reps = set.reps,
-                                                            weight = set.weight
-                                                        )
-                                                    }
-                                                )
+                                            Text(
+                                                text = ex.name,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+
+                                            LazyRow(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                itemsIndexed(
+                                                    items = ex.sets,
+                                                    key = { _, set -> set.id }
+                                                ) { index, set ->
+                                                    SetChip(
+                                                        index = index + 1,
+                                                        set = set,
+                                                        onClick = {
+                                                            editSet = EditSetRequest(
+                                                                id = set.id,
+                                                                label = "${workout.name} • ${ex.name} • Set ${index + 1}",
+                                                                reps = set.reps,
+                                                                weight = set.weight
+                                                            )
+                                                        }
+                                                    )
+                                                }
                                             }
                                         }
                                     }

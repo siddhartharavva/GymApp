@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import android.util.Log
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
@@ -64,11 +63,9 @@ fun ConfirmRepsScreen(
             val delta = -event.getAxisValue(MotionEvent.AXIS_SCROLL)
             rotaryAccum += delta
             val steps = (rotaryAccum / rotaryStepPx).toInt()
-            Log.d("RotaryReps", "delta=$delta accum=$rotaryAccum steps=$steps")
             if (steps != 0) {
                 rotaryAccum -= steps * rotaryStepPx
                 vm.updatePendingReps(vm.pendingReps + steps)
-                Log.d("RotaryReps", "reps=${vm.pendingReps}")
             }
             true
         }

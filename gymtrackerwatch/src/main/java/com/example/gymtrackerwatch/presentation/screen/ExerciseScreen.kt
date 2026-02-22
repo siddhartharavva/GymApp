@@ -54,21 +54,19 @@ fun ExerciseScreen(
                     style = MaterialTheme.typography.title3
                 )
 
-                if (ex.history.isNotEmpty()) {
+                val previousSession = ex.history.firstOrNull()
+                if (previousSession != null) {
                     Spacer(Modifier.height(2.dp))
 
                     Text(
-                        text = "Last 2 sessions",
+                        text = "Prev session",
                         style = historyStyle
                     )
 
-                    ex.history.take(2).forEachIndexed { index, session ->
-                        val label = if (index == 0) "Last" else "Prev"
-                        Text(
-                            text = "$label: ${formatHistorySets(session.sets)}",
-                            style = historyStyle
-                        )
-                    }
+                    Text(
+                        text = formatHistorySets(previousSession.sets),
+                        style = historyStyle
+                    )
                 }
 
                 Spacer(Modifier.height(4.dp))

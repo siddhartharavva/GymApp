@@ -59,6 +59,12 @@ class WorkoutRepository(
     ): List<CompletedWorkoutWithExercises> =
         dao.getRecentCompletedWorkouts(templateWorkoutId, limit)
 
+    suspend fun getRecentCompletedWorkoutsByName(
+        workoutName: String,
+        limit: Int
+    ): List<CompletedWorkoutWithExercises> =
+        dao.getRecentCompletedWorkoutsByName(workoutName, limit)
+
     suspend fun updateWorkout(workoutId: Int, name: String) {
         dao.updateWorkout(workoutId, name)
     }

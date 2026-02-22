@@ -1,6 +1,7 @@
 package com.example.gymtrackerwatch
 
 import android.os.Bundle
+import android.view.WindowManager
 import android.view.InputDevice
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
@@ -14,6 +15,7 @@ import android.content.pm.PackageManager
 import com.example.gymtrackerwatch.presentation.navigation.WatchNavGraph
 import com.example.gymtrackerwatch.presentation.theme.GymTrackerWatchTheme
 import com.example.gymtrackerwatch.viewmodel.ActiveWorkoutViewModel
+import com.example.gymtrackerwatch.util.AppVisibilityStore
 
 class MainActivity : ComponentActivity() {
     private val vm: ActiveWorkoutViewModel by viewModels()
@@ -21,6 +23,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         vm.attachContext(applicationContext)
+
+        if (android.os.Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
 
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             val granted = ContextCompat.checkSelfPermission(
@@ -45,7 +58,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        AppVisibilityStore.setVisible(applicationContext, true)
         vm.onAppVisible()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        AppVisibilityStore.setVisible(applicationContext, false)
+        vm.onAppHidden()
     }
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {

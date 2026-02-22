@@ -53,11 +53,13 @@ class WorkoutViewModel(
         val workout = repository.getWorkoutById(workoutId)
         val exercises = repository.getExercisesForWorkout(workoutId)
         val recentCompleted =
-            repository.getRecentCompletedWorkouts(
-                templateWorkoutId = workoutId,
+            repository.getRecentCompletedWorkoutsByName(
+                workoutName = workout.name,
                 limit = 2
             )
 
+        val historyByExerciseName =
+            mutableMapOf<String, MutableList<ExerciseHistoryDto>>()
         val historyByExerciseIndex =
             mutableMapOf<Int, MutableList<ExerciseHistoryDto>>()
 
@@ -78,14 +80,21 @@ class WorkoutViewModel(
                                 )
                             }
                     if (sets.isNotEmpty()) {
-                        val list =
-                            historyByExerciseIndex.getOrPut(index) { mutableListOf() }
-                        list.add(
+                        val history =
                             ExerciseHistoryDto(
                                 completedAtEpochMs = completedAt,
                                 sets = sets
                             )
-                        )
+                        val list =
+                            historyByExerciseIndex.getOrPut(index) { mutableListOf() }
+                        list.add(history)
+                        val exerciseNameKey =
+                            exWithSets.exercise.name
+                                .trim()
+                                .lowercase(Locale.getDefault())
+                        historyByExerciseName
+                            .getOrPut(exerciseNameKey) { mutableListOf() }
+                            .add(history)
                     }
                 }
         }
@@ -107,7 +116,10 @@ class WorkoutViewModel(
                             restSeconds = it.restSeconds
                         )
                     },
-                    history = historyByExerciseIndex[index] ?: emptyList()
+                    history =
+                        historyByExerciseName[
+                            exercise.name.trim().lowercase(Locale.getDefault())
+                        ] ?: historyByExerciseIndex[index] ?: emptyList()
                 )
             }
         )

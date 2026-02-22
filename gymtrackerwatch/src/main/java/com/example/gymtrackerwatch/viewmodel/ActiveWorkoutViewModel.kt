@@ -2,8 +2,6 @@ package com.example.gymtrackerwatch.viewmodel
 
 import android.content.Context
 import android.os.SystemClock
-import android.os.VibrationEffect
-import android.os.Vibrator
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,7 +20,8 @@ import com.example.gymtrackerwatch.sync.store.ActiveWorkoutStore
 import com.example.gymtrackerwatch.sync.store.ActiveWorkoutState
 import com.example.gymtrackerwatch.util.RestAlarmScheduler
 import com.example.gymtrackerwatch.util.RestHapticStore
-import com.example.gymtrackerwatch.notifications.WatchNotificationHelper
+import com.example.gymtrackerwatch.util.AppVisibilityStore
+import com.example.gymtrackerwatch.util.HapticUtil
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
@@ -291,8 +290,16 @@ class ActiveWorkoutViewModel : ViewModel() {
     private var restJob: Job? = null
 
     fun startRest() {
+        val set = currentSet()
+        if (set.completedReps == null || set.completedWeight == null) {
+            // Defensive guard: never allow rest for an unconfirmed set.
+            workoutUiState = WorkoutUiState.EXERCISE
+            persistState()
+            return
+        }
+
         if (!isRestRunning || restEndElapsedMs <= 0L) {
-            val planned = currentSet().plannedRestSeconds
+            val planned = set.plannedRestSeconds
             restEndElapsedMs = SystemClock.elapsedRealtime() + planned * 1000L
             restRemainingSeconds = planned
             isRestRunning = true
@@ -319,7 +326,6 @@ class ActiveWorkoutViewModel : ViewModel() {
     private fun finishRestNormally() {
         appContext?.let { RestAlarmScheduler.cancel(it) }
         triggerRestHaptic()
-        appContext?.let { WatchNotificationHelper.showRestComplete(it) }
         val elapsed = currentSet().plannedRestSeconds
         advanceAfterRest(elapsed, skipped = false)
     }
@@ -352,7 +358,7 @@ class ActiveWorkoutViewModel : ViewModel() {
             this[exIndex] = updatedExercise
         }
 
-        workout =
+        val nextWorkout =
             if (isExerciseDone && exIndex + 1 >= w.exercises.size) {
                 // ✅ WORKOUT FINISHED
                 workoutUiState = WorkoutUiState.COMPLETE
@@ -370,6 +376,10 @@ class ActiveWorkoutViewModel : ViewModel() {
             } else {
                 w.copy(exercises = updatedExercises)
             }
+        workout = nextWorkout
+        if (workoutUiState != WorkoutUiState.COMPLETE) {
+            workoutUiState = WorkoutUiState.EXERCISE
+        }
         persistState()
     }
 
@@ -479,6 +489,10 @@ class ActiveWorkoutViewModel : ViewModel() {
         startRestJob()
     }
 
+    fun onAppHidden() {
+        restJob?.cancel()
+    }
+
     private fun remainingRestSeconds(): Int {
         val end = restEndElapsedMs
         if (end <= 0L) return 0
@@ -493,11 +507,7 @@ class ActiveWorkoutViewModel : ViewModel() {
         isRestRunning = remaining > 0
         if (remaining <= 0) {
             restEndElapsedMs = 0L
-            if (isRestRunning) {
-                isRestRunning = false
-            }
-            appContext?.let { RestAlarmScheduler.cancel(it) }
-            triggerRestHaptic()
+            isRestRunning = false
             finishRestNormally()
             persistState()
         }
@@ -512,21 +522,19 @@ class ActiveWorkoutViewModel : ViewModel() {
 
     private fun triggerRestHaptic() {
         val ctx = appContext ?: return
+        if (!AppVisibilityStore.isVisible(ctx)) return
         val token = currentRestToken()
         if (RestHapticStore.wasFired(ctx, token)) return
 
         RestHapticStore.markFired(ctx, token)
-        val vibrator = ctx.getSystemService(Vibrator::class.java)
-        vibrator?.vibrate(
-            VibrationEffect.createOneShot(
-                800,
-                VibrationEffect.DEFAULT_AMPLITUDE
-            )
-        )
+        HapticUtil.vibrate(ctx, "VM")
+        android.util.Log.d("RestAlarm", "VM vibrate fired (screen on path)")
     }
 
     private fun startRestJob() {
         if (!isRestRunning || restEndElapsedMs <= 0L) return
+        val ctx = appContext
+        if (ctx != null && !AppVisibilityStore.isVisible(ctx)) return
         restJob?.cancel()
         restJob = viewModelScope.launch {
             while (true) {
@@ -570,6 +578,9 @@ class ActiveWorkoutViewModel : ViewModel() {
         started = state.started
         restEndElapsedMs = state.restEndElapsedMs
         _hasWorkout.value = false
+        if (workoutUiState == WorkoutUiState.REST && restEndElapsedMs <= 0L) {
+            workoutUiState = WorkoutUiState.EXERCISE
+        }
         syncRestFromClock()
         startRestJob()
     }

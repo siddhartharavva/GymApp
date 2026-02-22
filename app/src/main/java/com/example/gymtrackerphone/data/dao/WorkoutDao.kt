@@ -119,4 +119,16 @@ interface WorkoutDao {
         templateId: Int,
         limit: Int
     ): List<CompletedWorkoutWithExercises>
+
+    @Transaction
+    @Query(
+        "SELECT * FROM completed_workouts " +
+            "WHERE LOWER(TRIM(name)) = LOWER(TRIM(:workoutName)) " +
+            "ORDER BY completedAtEpochMs DESC " +
+            "LIMIT :limit"
+    )
+    suspend fun getRecentCompletedWorkoutsByName(
+        workoutName: String,
+        limit: Int
+    ): List<CompletedWorkoutWithExercises>
 }

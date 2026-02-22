@@ -32,6 +32,7 @@
             </intent-filter>
         </activity>
 
+
         <service
             android:name=".sync.receiver.WorkoutReceiverService"
             android:exported="true">

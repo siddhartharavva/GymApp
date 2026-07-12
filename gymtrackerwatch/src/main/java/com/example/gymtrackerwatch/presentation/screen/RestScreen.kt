@@ -58,16 +58,27 @@ fun RestScreen(
                     )
                 }
 
-                Button(
-                    onClick = {
-                        vm.skipRest()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth(0.75f)
-                        .height(52.dp),
-                    shape = RoundedCornerShape(50)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(0.75f),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("SKIP")
+                    Button(
+                        onClick = { vm.undoRest() },
+                        colors = ButtonDefaults.secondaryButtonColors(),
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text("UNDO")
+                    }
+                    Button(
+                        onClick = { vm.skipRest() },
+                        colors = ButtonDefaults.primaryButtonColors(),
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text("SKIP")
+                    }
                 }
             }
         }

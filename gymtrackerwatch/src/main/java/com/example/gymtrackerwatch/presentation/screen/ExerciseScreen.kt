@@ -44,8 +44,14 @@ fun ExerciseScreen(
                     style = MaterialTheme.typography.caption1
                 )
 
+                val repsText = if (set.targetMinReps == set.targetMaxReps) {
+                    "${set.targetMaxReps} reps"
+                } else {
+                    "${set.targetMinReps}-${set.targetMaxReps}"
+                }
+
                 Text(
-                    text = "${set.targetMaxReps} reps",
+                    text = repsText,
                     style = MaterialTheme.typography.display2
                 )
 

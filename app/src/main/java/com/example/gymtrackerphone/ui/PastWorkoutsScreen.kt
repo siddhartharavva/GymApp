@@ -69,6 +69,7 @@ fun PastWorkoutsScreen(
     val workouts by viewModel.pastWorkouts.collectAsState()
     var selectedFilter by remember { mutableStateOf<String?>(null) }
     var editSet by remember { mutableStateOf<EditSetRequest?>(null) }
+    var editExerciseName by remember { mutableStateOf<Pair<Int, String>?>(null) }
     var expandedWorkoutId by rememberSaveable { mutableStateOf<Int?>(null) }
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -271,7 +272,10 @@ fun PastWorkoutsScreen(
                                                 text = ex.name,
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.clickable {
+                                                    editExerciseName = ex.id to ex.name
+                                                }
                                             )
 
                                             LazyRow(
@@ -317,6 +321,22 @@ fun PastWorkoutsScreen(
                     weight = weight
                 )
                 editSet = null
+            }
+        )
+    }
+
+    if (editExerciseName != null) {
+        EditExerciseNameDialog(
+            initialName = editExerciseName!!.second,
+            onDismiss = { editExerciseName = null },
+            onSave = { newName ->
+                if (newName.isNotBlank()) {
+                    viewModel.updateCompletedExerciseName(
+                        exerciseId = editExerciseName!!.first,
+                        name = newName.trim()
+                    )
+                }
+                editExerciseName = null
             }
         )
     }
@@ -589,6 +609,36 @@ private fun EditSetDialog(
                     val weight = weightText.toFloatOrNull() ?: request.weight
                     onSave(reps.coerceAtLeast(0), weight.coerceAtLeast(0f))
                 }
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun EditExerciseNameDialog(
+    initialName: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var nameText by remember { mutableStateOf(initialName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Exercise Name") },
+        text = {
+            OutlinedTextField(
+                value = nameText,
+                onValueChange = { nameText = it },
+                label = { Text("Exercise Name") },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(nameText) }
             ) { Text("Save") }
         },
         dismissButton = {

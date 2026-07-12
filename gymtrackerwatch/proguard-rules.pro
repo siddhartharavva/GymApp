@@ -29,3 +29,4 @@
     public kotlinx.serialization.KSerializer serializer(...);
 }
 -keep class **$$serializer { *; }
+-keep class com.example.gymtrackerwatch.viewmodel.ActiveWorkoutViewModel$WorkoutUiState { *; }

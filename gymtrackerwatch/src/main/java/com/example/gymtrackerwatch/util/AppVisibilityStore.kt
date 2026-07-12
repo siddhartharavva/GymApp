@@ -1,16 +1,14 @@
 package com.example.gymtrackerwatch.util
 
-import android.content.Context
-
 object AppVisibilityStore {
     @Volatile
     private var visible: Boolean = false
 
-    fun setVisible(context: Context, visible: Boolean) {
+    fun setVisible(visible: Boolean) {
         this.visible = visible
     }
 
-    fun isVisible(context: Context): Boolean {
+    fun isVisible(): Boolean {
         return visible
     }
 }

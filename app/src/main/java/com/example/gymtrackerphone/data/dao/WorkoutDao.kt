@@ -29,7 +29,7 @@ interface WorkoutDao {
     )
     suspend fun getWorkoutIdsByName(workoutName: String): List<Int>
 
-    @Query("SELECT * FROM exercises WHERE workoutId = :workoutId")
+    @Query("SELECT * FROM exercises WHERE workoutId = :workoutId ORDER BY orderIndex ASC, id ASC")
     suspend fun getExercisesForWorkout(workoutId: Int): List<ExerciseEntity>
 
     @Query("SELECT * FROM sets WHERE exerciseId = :exerciseId")
@@ -56,6 +56,9 @@ interface WorkoutDao {
 
     @Query("DELETE FROM exercises WHERE id = :exerciseId")
     suspend fun deleteExerciseById(exerciseId: Int)
+
+    @Query("UPDATE exercises SET orderIndex = :orderIndex WHERE id = :exerciseId")
+    suspend fun updateExerciseOrderIndex(exerciseId: Int, orderIndex: Int)
 
 
 
@@ -102,6 +105,9 @@ interface WorkoutDao {
 
     @Query("DELETE FROM completed_workouts WHERE workoutId = :workoutId")
     suspend fun deleteCompletedWorkoutById(workoutId: Int)
+
+    @Query("UPDATE completed_exercises SET name = :name WHERE id = :exerciseId")
+    suspend fun updateCompletedExerciseName(exerciseId: Int, name: String)
 
     @Query(
         "SELECT workoutId FROM completed_workouts " +

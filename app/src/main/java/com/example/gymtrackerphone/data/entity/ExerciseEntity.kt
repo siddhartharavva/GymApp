@@ -17,5 +17,6 @@ import androidx.room.*
 data class ExerciseEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val workoutId: Int,
-    val name: String
+    val name: String,
+    val orderIndex: Int = 0
 )

@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectDragGestures
 import com.example.gymtrackerphone.viewmodel.WorkoutViewModel
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.math.roundToInt
 import kotlin.math.abs
 
@@ -146,7 +148,7 @@ fun WheelPicker(
 }
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutDetailsScreen(
     workoutId: Int,
@@ -156,7 +158,6 @@ fun WorkoutDetailsScreen(
     var bottomBarHeight by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
     val listState = rememberLazyListState()
-    val isListScrolling = listState.isScrollInProgress
     val weightValues = remember { (0..200).map { "${it * 2.5f}" } }
     val restValues = remember { (0..30).map { "${it * 10}s" } }
 
@@ -200,258 +201,281 @@ fun WorkoutDetailsScreen(
         ) {
 
             // -------- MAIN CONTENT --------
+            var expandedExercises by remember { mutableStateOf(setOf<Int>()) }
+            var exercises by remember(workout.exercises) { mutableStateOf(workout.exercises) }
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            val reorderableState = rememberReorderableLazyListState(listState) { from, to ->
+                exercises = exercises.toMutableList().apply {
+                    add(to.index, removeAt(from.index))
+                }
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize(),
                 state = listState,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     end = 16.dp,
                     top = 16.dp,
                     bottom = bottomBarHeight + 16.dp
                 )
-
             ) {
-                items(workout.exercises, key = { it.id }) { exercise ->
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    exercise.name,
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontSize = MaterialTheme.typography.titleLarge.fontSize * 1.1f
-                                    ),
-                                    modifier = Modifier.padding(top=4.dp,start = 4.dp)
-                                )
-
-                                IconButton(
-                                    onClick = {
-                                        exerciseToDelete = DeleteExerciseRequest(
-                                            id = exercise.id,
-                                            name = exercise.name
-                                        )
+                items(exercises, key = { it.id }) { exercise ->
+                    ReorderableItem(reorderableState, key = exercise.id) { isDragging ->
+                        val elevation by androidx.compose.animation.core.animateDpAsState(if (isDragging) 8.dp else 2.dp, label = "elevation")
+                        
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .longPressDraggableHandle(
+                                    onDragStopped = {
+                                        viewModel.reorderExercises(exercises.map { it.id })
                                     }
+                                ),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .clickable { 
+                                            expandedExercises = if (expandedExercises.contains(exercise.id)) {
+                                                expandedExercises - exercise.id
+                                            } else {
+                                                expandedExercises + exercise.id
+                                            }
+                                        },
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Outlined.Delete, null)
-                                }
-                            }
-
-
-                            exercise.sets.forEachIndexed { index, set ->
-
-                                var localRange by remember(
-                                    set.id,
-                                    set.minReps,
-                                    set.maxReps
-                                ) {
-                                    mutableStateOf(
-                                        set.minReps.toFloat()..set.maxReps.toFloat()
+                                    Text(
+                                        exercise.name,
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontSize = MaterialTheme.typography.titleLarge.fontSize * 1.1f
+                                        ),
+                                        modifier = Modifier.padding(top=4.dp,start = 4.dp)
                                     )
-                                }
 
-                                var allowSlider by remember(set.id) { mutableStateOf(true) }
-
-                                LaunchedEffect(set.minReps, set.maxReps) {
-                                    localRange =
-                                        set.minReps.toFloat()..set.maxReps.toFloat()
-                                }
-
-                                val isExpanded = expandedSetId == set.id
-
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth().
-                                        padding(vertical = 2.dp)
-                                        .animateContentSize(),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                    )
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                    IconButton(
+                                        onClick = {
+                                            exerciseToDelete = DeleteExerciseRequest(
+                                                id = exercise.id,
+                                                name = exercise.name
+                                            )
+                                        }
                                     ) {
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                "Set ${index + 1}",
-                                                modifier = Modifier
-                                                    .padding(start = 4.dp)
-                                                    .clickable {
-                                                        expandedSetId =
-                                                            if (isExpanded) null else set.id
-                                                    }
-                                            )
-
-                                            IconButton(
-                                                onClick = {
-                                                    setToDelete = DeleteSetRequest(
-                                                        id = set.id,
-                                                        label = "Set ${index + 1} • ${exercise.name}"
-                                                    )
-                                                },
-                                                modifier = Modifier
-                                                    .size(36.dp) // ⬅️ smaller tap area
-                                                    .offset(y = (-2).dp) // ⬅️ nudges it up
-                                            ) {
-                                                Icon(
-                                                    Icons.Outlined.Delete,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                           /* IconButton(
-                                                onClick = { viewModel.deleteSet(set.id) }
-                                            ) {
-                                                Icon(Icons.Outlined.Delete, null)
-                                            }*/
-                                        }
-
-                                        if (isExpanded) {
-                                            Text(
-                                                "Reps Range",
-                                                style = MaterialTheme.typography.labelMedium
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(28.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                RangeSlider(
-                                                    value = localRange,
-                                                    onValueChange = {
-                                                        if (!isListScrolling && allowSlider) {
-                                                            localRange = it
-                                                        }
-                                                    },
-                                                    onValueChangeFinished = {
-                                                        val min =
-                                                            localRange.start.roundToInt()
-                                                                .coerceAtLeast(1)
-                                                        val max =
-                                                            localRange.endInclusive.roundToInt()
-                                                                .coerceAtLeast(min)
-                                                                .coerceAtMost(35)
-                                                        if (min != set.minReps || max != set.maxReps) {
-                                                            viewModel.updateRepRange(set.id, min, max)
-                                                        }
-                                                    },
-                                                    modifier = Modifier.pointerInput(set.id, isListScrolling) {
-                                                        detectDragGestures(
-                                                            onDragStart = { allowSlider = true },
-                                                            onDragEnd = { allowSlider = true },
-                                                            onDragCancel = { allowSlider = true },
-                                                            onDrag = { change, dragAmount ->
-                                                                if (abs(dragAmount.y) > abs(dragAmount.x) && abs(dragAmount.y) > 6f) {
-                                                                    allowSlider = false
-                                                                }
-                                                                change.consume()
-                                                            }
-                                                        )
-                                                    },
-                                                    valueRange = 1f..35f,
-                                                    steps = 33,
-                                                    enabled = !isListScrolling,
-                                                    colors = SliderDefaults.colors(
-                                                        thumbColor = MaterialTheme.colorScheme.primary,
-                                                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                                                        inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                )
-                                            }
-
-                                            Box(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = "${localRange.start.roundToInt()} – " +
-                                                        "${localRange.endInclusive.roundToInt()} Reps",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-
-                                            Text(
-                                                "Weight",
-                                                style = MaterialTheme.typography.labelMedium
-                                            )
-                                            WheelPicker(
-                                                values = weightValues,
-                                                selectedIndex = (set.weight / 2.5f).roundToInt(),
-                                                onValueChange = { index ->
-                                                    val newWeight = index * 2.5f
-                                                    if (newWeight != set.weight) {
-                                                        viewModel.updateWeight(set.id, newWeight)
-                                                    }
-                                                },
-                                                userScrollEnabled = !isListScrolling
-                                            )
-
-                                            Text(
-                                                "Rest",
-                                                style = MaterialTheme.typography.labelMedium
-                                            )
-                                            WheelPicker(
-                                                values = restValues,
-                                                selectedIndex = (set.restSeconds / 10),
-                                                onValueChange = { index ->
-                                                    val newRest = index * 10
-                                                    if (newRest != set.restSeconds) {
-                                                        viewModel.updateRest(set.id, newRest)
-                                                    }
-                                                },
-                                                userScrollEnabled = !isListScrolling
-                                            )
-                                        } else {
-                                            Text(
-                                                text = "Reps ${set.minReps} – ${set.maxReps}",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                                            )
-                                            Text(
-                                                text = "Weight ${set.weight} kg",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                                            )
-                                            Text(
-                                                text = "Rest ${set.restSeconds}s",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 4.dp)
-                                            )
-                                        }
+                                        Icon(Icons.Outlined.Delete, null)
                                     }
                                 }
-                            }
 
-                            Button(
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = { viewModel.addSet(exercise.id) }
-                            ) {
-                                Icon(Icons.Outlined.Add, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Add Set")
+                                if (expandedExercises.contains(exercise.id)) {
+                                    exercise.sets.forEachIndexed { index, set ->
+
+                                        var localRange by remember(
+                                            set.id,
+                                            set.minReps,
+                                            set.maxReps
+                                        ) {
+                                            mutableStateOf(
+                                                set.minReps.toFloat()..set.maxReps.toFloat()
+                                            )
+                                        }
+
+                                        var allowSlider by remember(set.id) { mutableStateOf(true) }
+
+                                        LaunchedEffect(set.minReps, set.maxReps) {
+                                            localRange =
+                                                set.minReps.toFloat()..set.maxReps.toFloat()
+                                        }
+
+                                        val isExpanded = expandedSetId == set.id
+
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth().
+                                                padding(vertical = 2.dp)
+                                                .animateContentSize(),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                            ) {
+
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        "Set ${index + 1}",
+                                                        modifier = Modifier
+                                                            .padding(start = 4.dp)
+                                                            .clickable {
+                                                                expandedSetId =
+                                                                    if (isExpanded) null else set.id
+                                                            }
+                                                    )
+
+                                                    IconButton(
+                                                        onClick = {
+                                                            setToDelete = DeleteSetRequest(
+                                                                id = set.id,
+                                                                label = "Set ${index + 1} • ${exercise.name}"
+                                                            )
+                                                        },
+                                                        modifier = Modifier
+                                                            .size(36.dp) // ⬅️ smaller tap area
+                                                            .offset(y = (-2).dp) // ⬅️ nudges it up
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Outlined.Delete,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+
+                                                if (isExpanded) {
+                                                    val isListScrolling by remember(listState) {
+                                                        derivedStateOf { listState.isScrollInProgress }
+                                                    }
+                                                    Text(
+                                                        "Reps Range",
+                                                        style = MaterialTheme.typography.labelMedium
+                                                    )
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(28.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        RangeSlider(
+                                                            value = localRange,
+                                                            onValueChange = {
+                                                                if (!isListScrolling && allowSlider) {
+                                                                    localRange = it
+                                                                }
+                                                            },
+                                                            onValueChangeFinished = {
+                                                                val min =
+                                                                    localRange.start.roundToInt()
+                                                                        .coerceAtLeast(1)
+                                                                val max =
+                                                                    localRange.endInclusive.roundToInt()
+                                                                        .coerceAtLeast(min)
+                                                                        .coerceAtMost(35)
+                                                                if (min != set.minReps || max != set.maxReps) {
+                                                                    viewModel.updateRepRange(set.id, min, max)
+                                                                }
+                                                            },
+                                                            modifier = Modifier.pointerInput(set.id) {
+                                                                detectDragGestures(
+                                                                    onDragStart = { allowSlider = true },
+                                                                    onDragEnd = { allowSlider = true },
+                                                                    onDragCancel = { allowSlider = true },
+                                                                    onDrag = { change, dragAmount ->
+                                                                        if (abs(dragAmount.y) > abs(dragAmount.x) && abs(dragAmount.y) > 6f) {
+                                                                            allowSlider = false
+                                                                            return@detectDragGestures
+                                                                        }
+                                                                        change.consume()
+                                                                    }
+                                                                )
+                                                            },
+                                                            valueRange = 1f..35f,
+                                                            steps = 33,
+                                                            enabled = !isListScrolling,
+                                                            colors = SliderDefaults.colors(
+                                                                thumbColor = MaterialTheme.colorScheme.primary,
+                                                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                                                inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        )
+                                                    }
+
+                                                    Box(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = "${localRange.start.roundToInt()} – " +
+                                                                "${localRange.endInclusive.roundToInt()} Reps",
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+
+                                                    Text(
+                                                        "Weight",
+                                                        style = MaterialTheme.typography.labelMedium
+                                                    )
+                                                    WheelPicker(
+                                                        values = weightValues,
+                                                        selectedIndex = (set.weight / 2.5f).roundToInt(),
+                                                        onValueChange = { weightIndex ->
+                                                            val newWeight = weightIndex * 2.5f
+                                                            if (newWeight != set.weight) {
+                                                                viewModel.updateWeight(set.id, newWeight)
+                                                            }
+                                                        },
+                                                        userScrollEnabled = !isListScrolling
+                                                    )
+
+                                                    Text(
+                                                        "Rest",
+                                                        style = MaterialTheme.typography.labelMedium
+                                                    )
+                                                    WheelPicker(
+                                                        values = restValues,
+                                                        selectedIndex = (set.restSeconds / 10),
+                                                        onValueChange = { restIndex ->
+                                                            val newRest = restIndex * 10
+                                                            if (newRest != set.restSeconds) {
+                                                                viewModel.updateRest(set.id, newRest)
+                                                            }
+                                                        },
+                                                        userScrollEnabled = !isListScrolling
+                                                    )
+                                                } else {
+                                                    Text(
+                                                        text = "Reps ${set.minReps} – ${set.maxReps}",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                                                    )
+                                                    Text(
+                                                        text = "Weight ${set.weight} kg",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                                                    )
+                                                    Text(
+                                                        text = "Rest ${set.restSeconds}s",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 4.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Button(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = { viewModel.addSet(exercise.id) }
+                                    ) {
+                                        Icon(Icons.Outlined.Add, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Add Set")
+                                    }
+                                }
                             }
                         }
-
                     }
-                    Spacer(Modifier.height(8.dp))
-
-
                 }
             }
 

@@ -30,6 +30,7 @@ import com.example.gymtrackerphone.viewmodel.WorkoutViewModelFactory
 import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : ComponentActivity() {
+    @android.annotation.SuppressLint("InvalidFragmentVersionForActivityResult")
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 

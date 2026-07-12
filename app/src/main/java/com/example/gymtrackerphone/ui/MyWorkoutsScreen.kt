@@ -81,9 +81,16 @@ fun MyWorkoutsScreen(
 
                 LazyColumn {
                     items(workouts, key = { it.id }) { workout ->
+                        var lastProgress by remember { mutableStateOf(0f) }
+                        var hapticFired by remember { mutableStateOf(false) }
+                        val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.StartToEnd) {
+                                if (
+                                    value == SwipeToDismissBoxValue.StartToEnd &&
+                                    lastProgress >= 0.5f
+                                ) {
                                     viewModel.sendWorkoutToWatch(
                                         context = context,
                                         workoutId = workout.id
@@ -94,6 +101,18 @@ fun MyWorkoutsScreen(
                                 }
                             }
                         )
+
+                        LaunchedEffect(dismissState.progress) {
+                            val progress = dismissState.progress
+                            lastProgress = progress
+                            if (!hapticFired && progress >= 0.5f) {
+                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                hapticFired = true
+                            }
+                            if (progress < 0.1f) {
+                                hapticFired = false
+                            }
+                        }
 
                         SwipeToDismissBox(
                             state = dismissState,
@@ -184,6 +203,11 @@ fun MyWorkoutsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
+                        TextButton(
+                            onClick = { viewModel.exportTemplatesCsv(context) }
+                        ) {
+                            Text("Export CSV", color = androidx.compose.ui.graphics.Color.White)
+                        }
                         TextButton(
                             onClick = { importLauncher.launch("text/*") }
                         ) {

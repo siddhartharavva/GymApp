@@ -13,19 +13,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.material.*
+import androidx.wear.compose.material.Button
+import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.Scaffold
+import androidx.wear.compose.material.Text
+import androidx.wear.compose.material.TimeText
 import com.example.gymtrackerwatch.viewmodel.ActiveWorkoutViewModel
-import com.example.gymtrackerwatch.presentation.util.formatHistorySets
-import com.example.gymtrackerwatch.presentation.util.formatWeight
-
 
 @Composable
-fun ConfirmWeightScreen(
+fun AddCustomExerciseSetsScreen(
     vm: ActiveWorkoutViewModel
 ) {
-    val step = 2.5f
-    val weight = vm.pendingWeight
-    val lastHistory = vm.currentExercise().history.firstOrNull()
+    val sets = vm.pendingCustomSets
 
     Scaffold(
         timeText = { TimeText() }
@@ -39,9 +38,8 @@ fun ConfirmWeightScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-
                 Text(
-                    text = "WEIGHT",
+                    text = "SETS",
                     style = MaterialTheme.typography.caption1
                 )
 
@@ -50,7 +48,7 @@ fun ConfirmWeightScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { vm.updatePendingWeight(weight - step) },
+                        onClick = { vm.updatePendingCustomSets(sets - 1) },
                         modifier = Modifier.size(40.dp),
                         shape = RoundedCornerShape(50)
                     ) {
@@ -58,12 +56,12 @@ fun ConfirmWeightScreen(
                     }
 
                     Text(
-                        text = "${formatWeight(weight)} kg",
+                        text = sets.toString(),
                         style = MaterialTheme.typography.display1
                     )
 
                     Button(
-                        onClick = { vm.updatePendingWeight(weight + step) },
+                        onClick = { vm.updatePendingCustomSets(sets + 1) },
                         modifier = Modifier.size(40.dp),
                         shape = RoundedCornerShape(50)
                     ) {
@@ -71,35 +69,16 @@ fun ConfirmWeightScreen(
                     }
                 }
 
-                if (lastHistory != null) {
-                    Text(
-                        text = "Last: ${formatHistorySets(lastHistory.sets)}",
-                        style = MaterialTheme.typography.caption1
-                    )
+                Button(
+                    onClick = { vm.goToAddCustomExerciseRest() },
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text("NEXT")
                 }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth(0.75f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = { vm.undoConfirmWeight() },
-                        colors = ButtonDefaults.secondaryButtonColors(),
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Text("BACK")
-                    }
-                    Button(
-                        onClick = { vm.confirmCurrentSet() },
-                        colors = ButtonDefaults.primaryButtonColors(),
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Text("CONFIRM")
-                    }
-                }
             }
         }
     }

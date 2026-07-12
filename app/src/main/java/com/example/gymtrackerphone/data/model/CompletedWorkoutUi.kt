@@ -10,6 +10,7 @@ data class CompletedWorkoutUi(
 )
 
 data class CompletedExerciseUi(
+    val id: Int,
     val name: String,
     val sets: List<CompletedSetUi>
 )

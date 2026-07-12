@@ -157,6 +157,10 @@ class WorkoutRepository(
         dao.deleteExerciseById(exerciseId)
     }
 
+    suspend fun updateExerciseOrderIndex(exerciseId: Int, orderIndex: Int) {
+        dao.updateExerciseOrderIndex(exerciseId, orderIndex)
+    }
+
     // ---------- SET ----------
     suspend fun addSet(exerciseId: Int) {
         val orderIndex = dao.getNextSetOrderIndex(exerciseId)
@@ -190,6 +194,10 @@ class WorkoutRepository(
 
     suspend fun updateCompletedSet(setId: Int, reps: Int, weight: Float) {
         dao.updateCompletedSet(setId, reps, weight)
+    }
+
+    suspend fun updateCompletedExerciseName(exerciseId: Int, name: String) {
+        dao.updateCompletedExerciseName(exerciseId, name)
     }
 
     suspend fun deleteCompletedWorkout(workoutId: Int) {

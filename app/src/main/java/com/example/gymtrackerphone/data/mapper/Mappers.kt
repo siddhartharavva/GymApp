@@ -9,7 +9,9 @@ fun WorkoutWithExercises.toUi(): WorkoutUi =
     WorkoutUi(
         id = workout.id,
         name = workout.name,
-        exercises = exercises.map { it.toUi() }
+        exercises = exercises
+            .sortedBy { it.exercise.orderIndex }
+            .map { it.toUi() }
     )
 
 fun ExerciseWithSets.toUi(): ExerciseUi =
@@ -41,6 +43,7 @@ fun CompletedWorkoutWithExercises.toUi(): CompletedWorkoutUi =
 
 fun CompletedExerciseWithSets.toUi(): CompletedExerciseUi =
     CompletedExerciseUi(
+        id = exercise.id,
         name = exercise.name,
         sets = sets
             .sortedBy { it.orderIndex }

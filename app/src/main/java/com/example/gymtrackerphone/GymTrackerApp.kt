@@ -24,6 +24,7 @@ class GymTrackerApp : Application() {
             AppDatabase::class.java,
             "gymtracker.db"
         )
+            .addMigrations(AppDatabase.MIGRATION_5_6)
             .fallbackToDestructiveMigration()
             .build()
 

@@ -18,6 +18,9 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     val navController = rememberNavController()
     val hasIncoming by IncomingWorkoutStore.hasWorkout.collectAsState()
     val context = LocalContext.current
+    val hasUnstartedWorkout = vm.workout != null && !vm.isStarted
+    val hasStartedWorkout = vm.workout != null && vm.isStarted
+    val hasNoWorkout = vm.workout == null
 
     LaunchedEffect(Unit) {
         IncomingWorkoutStore.init(context)
@@ -25,8 +28,8 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     }
 
     // idle → incoming
-    LaunchedEffect(hasIncoming, vm.workout, vm.isStarted) {
-        if (hasIncoming || (vm.workout != null && !vm.isStarted)) {
+    LaunchedEffect(hasIncoming, hasUnstartedWorkout) {
+        if (hasIncoming || hasUnstartedWorkout) {
             if (navController.currentDestination?.route != "incoming") {
                 navController.navigate("incoming") {
                     popUpTo("idle") { inclusive = true }
@@ -37,8 +40,8 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     }
 
     // active workout → workout screen
-    LaunchedEffect(vm.workout, vm.isStarted) {
-        if (vm.workout != null && vm.isStarted) {
+    LaunchedEffect(hasStartedWorkout) {
+        if (hasStartedWorkout) {
             if (navController.currentDestination?.route != "workout") {
                 navController.navigate("workout") {
                     popUpTo(navController.graph.id) { inclusive = true }
@@ -61,8 +64,8 @@ fun WatchNavGraph(vm: ActiveWorkoutViewModel) {
     }
 
     // when workout resets to null, go back to idle
-    LaunchedEffect(vm.workout) {
-        if (vm.workout == null) {
+    LaunchedEffect(hasNoWorkout) {
+        if (hasNoWorkout) {
             if (navController.currentDestination?.route != "idle") {
                 navController.navigate("idle") {
                     popUpTo(navController.graph.id) { inclusive = true }

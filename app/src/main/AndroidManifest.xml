@@ -45,7 +45,8 @@
             android:name=".sync.receiver.WorkoutResultReceiverService"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.google.android.gms.wearable.BIND_LISTENER" />
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/send_completed_workout" />
             </intent-filter>
         </service>
 

@@ -16,7 +16,7 @@ class RestAlarmReceiver : BroadcastReceiver() {
         if (token.isNotBlank() && RestHapticStore.wasFired(context, token)) {
             return
         }
-        if (AppVisibilityStore.isVisible(context)) {
+        if (AppVisibilityStore.isVisible()) {
             // App is in foreground; ViewModel will handle haptic.
             Log.d("RestAlarm", "Receiver fired but app visible; skipping receiver haptic.")
             return

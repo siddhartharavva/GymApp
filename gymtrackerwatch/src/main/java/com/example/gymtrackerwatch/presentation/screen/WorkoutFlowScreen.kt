@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
@@ -44,6 +46,12 @@ fun WorkoutFlowScreen(vm: ActiveWorkoutViewModel) {
                 showEndConfirm = true
 
             ActiveWorkoutViewModel.WorkoutUiState.COMPLETE -> Unit
+
+            ActiveWorkoutViewModel.WorkoutUiState.ADD_CUSTOM_EXERCISE_REST ->
+                vm.goToAddCustomExerciseSets()
+
+            ActiveWorkoutViewModel.WorkoutUiState.ADD_CUSTOM_EXERCISE_SETS ->
+                vm.cancelAddCustomExercise()
         }
     }
 
@@ -63,6 +71,12 @@ fun WorkoutFlowScreen(vm: ActiveWorkoutViewModel) {
 
         ActiveWorkoutViewModel.WorkoutUiState.COMPLETE ->
             WorkoutCompleteScreen(vm)
+
+        ActiveWorkoutViewModel.WorkoutUiState.ADD_CUSTOM_EXERCISE_SETS ->
+            AddCustomExerciseSetsScreen(vm)
+
+        ActiveWorkoutViewModel.WorkoutUiState.ADD_CUSTOM_EXERCISE_REST ->
+            AddCustomExerciseRestScreen(vm)
     }
 
     if (showEndConfirm) {
@@ -75,7 +89,9 @@ fun WorkoutFlowScreen(vm: ActiveWorkoutViewModel) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(8.dp)
+                modifier = Modifier
+                    .padding(8.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = "End workout?",
@@ -101,6 +117,18 @@ fun WorkoutFlowScreen(vm: ActiveWorkoutViewModel) {
                         .height(44.dp)
                 ) {
                     Text("Cancel Workout")
+                }
+
+                Button(
+                    onClick = {
+                        showEndConfirm = false
+                        vm.skipCurrentExercise()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth(0.75f)
+                        .height(44.dp)
+                ) {
+                    Text("Skip Exercise")
                 }
 
                 Button(

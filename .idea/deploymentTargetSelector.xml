@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-02-09T14:00:32.940733Z">
+        <DropdownSelection timestamp="2026-07-12T04:37:19.564989Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=RZCX61JMFSX" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=RZAY600KRLT" />
             </handle>
           </Target>
         </DropdownSelection>
@@ -15,10 +15,10 @@
       </SelectionState>
       <SelectionState runConfigName="gymtrackerwatch">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-02-08T05:55:18.093945Z">
+        <DropdownSelection timestamp="2026-03-05T13:29:40.753955Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=RZAY600KRLT" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=/Users/siddhartharavva/.android/avd/Pixel_8_Pro_API_36.avd" />
             </handle>
           </Target>
         </DropdownSelection>

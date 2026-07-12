@@ -131,10 +131,10 @@ class WorkoutViewModel(
                         )
                     },
                     history =
-                        historyByExerciseIndex[index]
-                            ?: historyByExerciseName[
-                                exercise.name.trim().lowercase(Locale.getDefault())
-                            ]
+                        historyByExerciseName[
+                            exercise.name.trim().lowercase(Locale.getDefault())
+                        ]
+                            ?: historyByExerciseIndex[index]
                             ?: emptyList()
                 )
             }
@@ -157,6 +157,12 @@ class WorkoutViewModel(
 
     fun deleteExercise(exerciseId: Int) = launch {
         repository.deleteExercise(exerciseId)
+    }
+
+    fun reorderExercises(exerciseIds: List<Int>) = launch {
+        exerciseIds.forEachIndexed { index, id ->
+            repository.updateExerciseOrderIndex(id, index)
+        }
     }
 
     fun addSet(exerciseId: Int) = launch {
@@ -189,6 +195,10 @@ class WorkoutViewModel(
 
     fun updateWorkout(workoutId: Int, name: String) = launch {
         repository.updateWorkout(workoutId, name)
+    }
+
+    fun updateCompletedExerciseName(exerciseId: Int, name: String) = launch {
+        repository.updateCompletedExerciseName(exerciseId, name)
     }
 
     fun importCompletedCsv(context: Context, uri: Uri) {
@@ -440,4 +450,51 @@ class WorkoutViewModel(
         val weight: Float
     )
 
+    fun exportTemplatesCsv(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val workoutsList = workouts.value
+            val csv = buildString {
+                append("Workout,Exercise,Set,Min Reps,Max Reps,Weight,Rest Seconds\n")
+                workoutsList.forEach { workout ->
+                    workout.exercises.forEach { exercise ->
+                        exercise.sets.forEachIndexed { setIndex, set ->
+                            val maxRepsStr = set.maxReps?.toString() ?: ""
+                            append("${escapeCsv(workout.name)},${escapeCsv(exercise.name)},${setIndex + 1},${set.minReps},$maxRepsStr,${set.weight},${set.restSeconds}\n")
+                        }
+                    }
+                }
+            }
+
+            try {
+                val file = java.io.File(context.cacheDir, "templates_export.csv")
+                file.writeText(csv)
+                
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    file
+                )
+                
+                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                
+                val chooser = android.content.Intent.createChooser(intent, "Export Templates").apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(chooser)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+    
+    private fun escapeCsv(value: String): String {
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"${value.replace("\"", "\"\"")}\""
+        }
+        return value
+    }
 }

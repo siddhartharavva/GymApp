@@ -56,7 +56,9 @@ class ActiveWorkoutViewModel : ViewModel() {
         CONFIRM_REPS,
         CONFIRM_WEIGHT,
         REST,
-        COMPLETE
+        COMPLETE,
+        ADD_CUSTOM_EXERCISE_SETS,
+        ADD_CUSTOM_EXERCISE_REST
     }
 
     var workoutUiState by mutableStateOf(WorkoutUiState.EXERCISE)
@@ -97,6 +99,41 @@ class ActiveWorkoutViewModel : ViewModel() {
         persistState()
     }
 
+    fun undoConfirmWeight() {
+        if (workoutUiState != WorkoutUiState.CONFIRM_WEIGHT) return
+        if (!consumeUiAction()) return
+        workoutUiState = WorkoutUiState.CONFIRM_REPS
+        persistState()
+    }
+
+    fun undoRest() {
+        if (workoutUiState != WorkoutUiState.REST) return
+        if (!consumeUiAction()) return
+
+        
+        // Revert set completion status
+        val w = requireNotNull(workout)
+        val exIndex = w.currentExerciseIndex
+        val setIndex = currentExercise().currentSetIndex
+        
+        val updatedSet = currentSet().copy(
+            completedReps = null,
+            completedWeight = null,
+            completedAtEpochMs = null
+        )
+        val updatedSets = currentExercise().sets.toMutableList().apply {
+            this[setIndex] = updatedSet
+        }
+        val updatedExercise = currentExercise().copy(sets = updatedSets)
+        val updatedExercises = w.exercises.toMutableList().apply {
+            this[exIndex] = updatedExercise
+        }
+        
+        workout = w.copy(exercises = updatedExercises)
+        workoutUiState = WorkoutUiState.CONFIRM_WEIGHT
+        persistState()
+    }
+
     var pendingReps by mutableIntStateOf(0)
         private set
 
@@ -109,6 +146,77 @@ class ActiveWorkoutViewModel : ViewModel() {
 
     fun updatePendingWeight(value: Float) {
         pendingWeight = value.coerceAtLeast(0f)
+    }
+
+    var pendingCustomSets by mutableIntStateOf(3)
+        private set
+    var pendingCustomRest by mutableIntStateOf(60)
+        private set
+    var customExerciseCount by mutableIntStateOf(1)
+        private set
+
+    fun goToAddCustomExerciseSets() {
+        if (workoutUiState != WorkoutUiState.COMPLETE && workoutUiState != WorkoutUiState.ADD_CUSTOM_EXERCISE_REST) return
+        if (!consumeUiAction()) return
+        pendingCustomSets = 3
+        pendingCustomRest = 60
+        workoutUiState = WorkoutUiState.ADD_CUSTOM_EXERCISE_SETS
+        persistState()
+    }
+
+    fun goToAddCustomExerciseRest() {
+        if (workoutUiState != WorkoutUiState.ADD_CUSTOM_EXERCISE_SETS) return
+        if (!consumeUiAction()) return
+        workoutUiState = WorkoutUiState.ADD_CUSTOM_EXERCISE_REST
+        persistState()
+    }
+
+    fun cancelAddCustomExercise() {
+        if (!consumeUiAction()) return
+        workoutUiState = WorkoutUiState.COMPLETE
+        persistState()
+    }
+
+    fun updatePendingCustomSets(value: Int) {
+        pendingCustomSets = value.coerceIn(1, 15)
+    }
+
+    fun updatePendingCustomRest(value: Int) {
+        pendingCustomRest = value.coerceIn(0, 300)
+    }
+
+    fun confirmCustomExercise() {
+        if (workoutUiState != WorkoutUiState.ADD_CUSTOM_EXERCISE_REST) return
+        if (!consumeUiAction()) return
+        
+        val w = workout ?: return
+        
+        val newSets = List(pendingCustomSets) { _ ->
+            ActiveSet(
+                targetMinReps = 10,
+                targetMaxReps = 12,
+                targetWeight = 0f,
+                plannedRestSeconds = pendingCustomRest
+            )
+        }
+        
+        val newExercise = ActiveExercise(
+            name = "Custom Exercise $customExerciseCount",
+            sets = newSets,
+            currentSetIndex = 0
+        )
+        
+        val updatedExercises = w.exercises.toMutableList()
+        updatedExercises.add(newExercise)
+        
+        workout = w.copy(
+            exercises = updatedExercises,
+            currentExerciseIndex = updatedExercises.size - 1
+        )
+        customExerciseCount++
+        
+        workoutUiState = WorkoutUiState.EXERCISE
+        persistState()
     }
 
     private fun initPendingForCurrentSet() {
@@ -142,12 +250,18 @@ class ActiveWorkoutViewModel : ViewModel() {
                                 completedAtEpochMs = completedAt
                             )
                         } else {
-                            null
+                            CompletedSet(
+                                setIndex = setIndex,
+                                reps = 0,
+                                weight = 0f,
+                                actualRestSeconds = 0,
+                                skippedRest = true,
+                                completedAtEpochMs = System.currentTimeMillis()
+                            )
                         }
                     }
 
-                if (completedSets.isEmpty()) null
-                else CompletedExercise(name = ex.name, sets = completedSets)
+                CompletedExercise(name = ex.name, sets = completedSets)
             }
 
         return CompletedWorkout(
@@ -219,6 +333,34 @@ class ActiveWorkoutViewModel : ViewModel() {
             completedAtEpochMs = System.currentTimeMillis(),
             pendingSync = true
         )
+        persistState()
+    }
+
+    fun skipCurrentExercise() {
+        if (!consumeUiAction()) return
+        val w = workout ?: return
+        
+        restJob?.cancel()
+        isRestRunning = false
+        restEndElapsedMs = 0L
+        restRemainingSeconds = 0
+        appContext?.let { RestAlarmScheduler.cancel(it) }
+
+        val exIndex = w.currentExerciseIndex
+        val isLastExercise = exIndex + 1 >= w.exercises.size
+
+        if (isLastExercise) {
+            workoutUiState = WorkoutUiState.COMPLETE
+            workout = w.copy(
+                completedAtEpochMs = System.currentTimeMillis(),
+                pendingSync = true
+            )
+        } else {
+            workout = w.copy(
+                currentExerciseIndex = exIndex + 1
+            )
+            workoutUiState = WorkoutUiState.EXERCISE
+        }
         persistState()
     }
 
@@ -453,7 +595,11 @@ class ActiveWorkoutViewModel : ViewModel() {
 
         workout = template.toActiveWorkout()
         workoutLoaded = true
-        workoutUiState = WorkoutUiState.EXERCISE
+        workoutUiState = if (workout!!.exercises.isEmpty()) {
+            WorkoutUiState.COMPLETE
+        } else {
+            WorkoutUiState.EXERCISE
+        }
         _hasWorkout.value = true
         started = false
         restEndElapsedMs = 0L
@@ -516,15 +662,31 @@ class ActiveWorkoutViewModel : ViewModel() {
         }
     }
 
+    private var lastRotaryTimeMs: Long = 0L
+    private var fastRotaryCount: Int = 0
+
     fun handleRotaryDelta(delta: Float): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        val timeSinceLast = now - lastRotaryTimeMs
+        lastRotaryTimeMs = now
+
+        if (timeSinceLast < 100) {
+            fastRotaryCount++
+        } else {
+            fastRotaryCount = 0
+        }
+
+        val isAccelerated = fastRotaryCount > 2
         val stepPx = 1f
+
         when (workoutUiState) {
             WorkoutUiState.CONFIRM_REPS -> {
                 rotaryAccum += delta
                 val steps = (rotaryAccum / stepPx).toInt()
                 if (steps != 0) {
                     rotaryAccum -= steps * stepPx
-                    updatePendingReps(pendingReps + steps)
+                    val increment = if (isAccelerated) 3 else 1
+                    updatePendingReps(pendingReps + (steps * increment))
                 }
                 return true
             }
@@ -534,7 +696,30 @@ class ActiveWorkoutViewModel : ViewModel() {
                 val steps = (rotaryAccum / stepPx).toInt()
                 if (steps != 0) {
                     rotaryAccum -= steps * stepPx
-                    updatePendingWeight(pendingWeight + (steps * 2.5f))
+                    val increment = if (isAccelerated) 2.5f else 0.5f
+                    updatePendingWeight(pendingWeight + (steps * increment))
+                }
+                return true
+            }
+
+            WorkoutUiState.ADD_CUSTOM_EXERCISE_SETS -> {
+                rotaryAccum += delta
+                val steps = (rotaryAccum / stepPx).toInt()
+                if (steps != 0) {
+                    rotaryAccum -= steps * stepPx
+                    val increment = 1 // No acceleration for sets
+                    updatePendingCustomSets(pendingCustomSets + (steps * increment))
+                }
+                return true
+            }
+
+            WorkoutUiState.ADD_CUSTOM_EXERCISE_REST -> {
+                rotaryAccum += delta
+                val steps = (rotaryAccum / stepPx).toInt()
+                if (steps != 0) {
+                    rotaryAccum -= steps * stepPx
+                    val increment = if (isAccelerated) 30 else 10
+                    updatePendingCustomRest(pendingCustomRest + (steps * increment))
                 }
                 return true
             }
@@ -590,7 +775,7 @@ class ActiveWorkoutViewModel : ViewModel() {
 
     private fun triggerRestHaptic() {
         val ctx = appContext ?: return
-        if (!AppVisibilityStore.isVisible(ctx)) return
+        if (!AppVisibilityStore.isVisible()) return
         val token = currentRestToken()
         if (RestHapticStore.wasFired(ctx, token)) return
 
@@ -601,8 +786,7 @@ class ActiveWorkoutViewModel : ViewModel() {
 
     private fun startRestJob() {
         if (!isRestRunning || restEndElapsedMs <= 0L) return
-        val ctx = appContext
-        if (ctx != null && !AppVisibilityStore.isVisible(ctx)) return
+        if (!AppVisibilityStore.isVisible()) return
         restJob?.cancel()
         restJob = viewModelScope.launch {
             while (true) {
@@ -648,6 +832,9 @@ class ActiveWorkoutViewModel : ViewModel() {
         _hasWorkout.value = false
         if (workoutUiState == WorkoutUiState.REST && restEndElapsedMs <= 0L) {
             workoutUiState = WorkoutUiState.EXERCISE
+        }
+        if (workoutUiState == WorkoutUiState.EXERCISE && state.workout.exercises.isEmpty()) {
+            workoutUiState = WorkoutUiState.COMPLETE
         }
         syncRestFromClock()
         startRestJob()
